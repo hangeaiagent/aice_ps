@@ -175,6 +175,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     { name: '肖像', value: '3:4' },
   ];
 
+  console.log('StartScreen rendering with templates:', templates.length);
+  
   return (
     <div className="flex flex-col items-center gap-6 animate-fade-in w-full max-w-5xl mx-auto text-center p-4 sm:p-8">
       <h1 className="text-5xl font-extrabold tracking-tight text-gray-100 sm:text-6xl md:text-7xl">

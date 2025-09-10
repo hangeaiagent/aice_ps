@@ -719,6 +719,8 @@ const App: React.FC = () => {
   }, [notification]);
   
   const MainContent: React.FC = () => {
+    console.log('MainContent rendering, activeView:', activeView);
+    
     switch (activeView) {
         case 'past-forward': return <PastForwardPage />;
         case 'beatsync': return <BeatSyncPage />;

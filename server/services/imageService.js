@@ -181,7 +181,12 @@ class ImageGenerationService {
   // 生成编辑后的图片
   async generateEditedImage(imageFile, prompt, hotspot) {
     const imagePart = await this.fileToGenerativePart(imageFile);
-    const textPart = { text: `Apply this edit at hotspot (${hotspot.x}, ${hotspot.y}): ${prompt}` };
+    let textPart;
+    if (hotspot && hotspot.x !== undefined && hotspot.y !== undefined) {
+      textPart = { text: `Apply this edit at hotspot (${hotspot.x}, ${hotspot.y}): ${prompt}` };
+    } else {
+      textPart = { text: `Apply this edit to the image: ${prompt}` };
+    }
     return this.callImageEditingModel([imagePart, textPart], '修饰');
   }
 
