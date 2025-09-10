@@ -8,6 +8,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import { generateEditedImage, generateFilteredImage, generateAdjustedImage, generateFusedImage, generateTexturedImage, removeBackgroundImage } from './services/geminiService';
+import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Spinner from './components/Spinner';
 import FilterPanel from './components/FilterPanel';
@@ -748,46 +749,48 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
-      <Header 
-        activeView={activeView} 
-        onViewChange={(view) => {
-            // Reset template state if user navigates away
-            if (view !== 'editor' && view !== 'template-display') {
-                setEditorInitialState(null);
-                setSelectedTemplate(null);
-            }
-            setActiveView(view)
-        }} 
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-        onOpenHelp={() => setIsHelpModalOpen(true)}
-      />
-      <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
-        <MainContent />
-      </main>
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        onSave={() => setNotification("设置已成功保存！")}
-      />
-      <HelpModal
-        isOpen={isHelpModalOpen}
-        onClose={() => setIsHelpModalOpen(false)}
-      />
-      <AnimatePresence>
-        {notification && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.3 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-            className="fixed bottom-6 right-6 z-50 bg-green-500/90 text-white px-5 py-3 rounded-lg shadow-2xl backdrop-blur-sm"
-          >
-            <p className="font-semibold">{notification}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <AuthProvider>
+      <div className="flex flex-col min-h-screen bg-gray-900 text-white">
+        <Header 
+          activeView={activeView} 
+          onViewChange={(view) => {
+              // Reset template state if user navigates away
+              if (view !== 'editor' && view !== 'template-display') {
+                  setEditorInitialState(null);
+                  setSelectedTemplate(null);
+              }
+              setActiveView(view)
+          }} 
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenHelp={() => setIsHelpModalOpen(true)}
+        />
+        <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+          <MainContent />
+        </main>
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          onSave={() => setNotification("设置已成功保存！")}
+        />
+        <HelpModal
+          isOpen={isHelpModalOpen}
+          onClose={() => setIsHelpModalOpen(false)}
+        />
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.3 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="fixed bottom-6 right-6 z-50 bg-green-500/90 text-white px-5 py-3 rounded-lg shadow-2xl backdrop-blur-sm"
+            >
+              <p className="font-semibold">{notification}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </AuthProvider>
   );
 };
 
