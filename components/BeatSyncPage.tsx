@@ -4,7 +4,7 @@
 */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateStyledImage } from '../services/geminiService';
+import { hybridImageService } from '../services/hybridImageService';
 import { UploadIcon, DownloadIcon, ChevronDownIcon, PlayIcon, PauseIcon, RefreshIcon } from './icons';
 import Spinner from './Spinner';
 
@@ -57,7 +57,7 @@ const MUSIC_TRACKS = [
 // Helper to add retry logic to image generation
 const generateWithRetry = async (file: File, prompt: string, retries = 1): Promise<string> => {
     try {
-        return await generateStyledImage(file, prompt);
+        return await hybridImageService.generateStyledImage(file, prompt);
     } catch (error) {
         if (retries > 0) {
             console.warn(`Image generation failed, retrying... (${retries} attempts left)`);
@@ -186,32 +186,53 @@ const BeatSyncPage: React.FC = () => {
         }
         setGeneratedImages(initialImages);
 
-        // Concurrency limiting for image generation
-        const concurrencyLimit = 3;
-        const promptsQueue = [...stylePrompts.entries()]; // [index, prompt]
-
-        const processQueue = async () => {
-            if (promptsQueue.length === 0) return;
-
-            const [index, prompt] = promptsQueue.shift()!;
+        // 尝试使用批量生成 API，如果失败则回退到单个生成
+        try {
+            const batchResults = await hybridImageService.generateBatchStyledImages(uploadedImageFile!, stylePrompts);
             
-            try {
-                const url = await generateWithRetry(uploadedImageFile!, prompt);
-                setGeneratedImages(prev => ({ ...prev, [index]: { status: 'done', url } }));
-            } catch (err) {
-                console.error(`Failed to generate image for style ${index + 1}:`, err);
-                const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-                setGeneratedImages(prev => ({ ...prev, [index]: { status: 'error', error: errorMessage } }));
+            // 处理批量结果
+            const updatedImages: Record<number, GeneratedImage> = {};
+            for (const result of batchResults) {
+                if (result.status === 'done' && result.url) {
+                    updatedImages[result.index] = { status: 'done', url: result.url };
+                } else {
+                    updatedImages[result.index] = { 
+                        status: 'error', 
+                        error: result.error || '生成失败' 
+                    };
+                }
             }
-        };
+            setGeneratedImages(updatedImages);
+        } catch (error) {
+            console.warn('批量生成失败，回退到单个生成:', error);
+            
+            // 回退到原有的并发生成逻辑
+            const concurrencyLimit = 3;
+            const promptsQueue = [...stylePrompts.entries()]; // [index, prompt]
 
-        const workers = Array(concurrencyLimit).fill(null).map(async () => {
-            while (promptsQueue.length > 0) {
-                await processQueue();
-            }
-        });
+            const processQueue = async () => {
+                if (promptsQueue.length === 0) return;
 
-        await Promise.all(workers);
+                const [index, prompt] = promptsQueue.shift()!;
+                
+                try {
+                    const url = await generateWithRetry(uploadedImageFile!, prompt);
+                    setGeneratedImages(prev => ({ ...prev, [index]: { status: 'done', url } }));
+                } catch (err) {
+                    console.error(`Failed to generate image for style ${index + 1}:`, err);
+                    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+                    setGeneratedImages(prev => ({ ...prev, [index]: { status: 'error', error: errorMessage } }));
+                }
+            };
+
+            const workers = Array(concurrencyLimit).fill(null).map(async () => {
+                while (promptsQueue.length > 0) {
+                    await processQueue();
+                }
+            });
+
+            await Promise.all(workers);
+        }
     };
 
     const createVideo = useCallback(async (imageUrls: string[]) => {

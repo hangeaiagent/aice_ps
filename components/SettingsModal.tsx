@@ -15,14 +15,17 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }) => {
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
+  const [useServerGeneration, setUseServerGeneration] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       const storedKey = localStorage.getItem('gemini-api-key') || '';
       const storedBaseUrl = localStorage.getItem('gemini-base-url') || '';
+      const storedServerGeneration = localStorage.getItem('use-server-generation') === 'true';
       setApiKey(storedKey);
       setBaseUrl(storedBaseUrl);
+      setUseServerGeneration(storedServerGeneration);
       setIsSaved(false); // Reset saved status on open
     }
   }, [isOpen]);
@@ -30,6 +33,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
   const handleSave = () => {
     localStorage.setItem('gemini-api-key', apiKey);
     localStorage.setItem('gemini-base-url', baseUrl);
+    localStorage.setItem('use-server-generation', useServerGeneration.toString());
     setIsSaved(true);
     onSave();
     // Optionally close the modal after a short delay
@@ -41,8 +45,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
   const handleClear = () => {
     localStorage.removeItem('gemini-api-key');
     localStorage.removeItem('gemini-base-url');
+    localStorage.removeItem('use-server-generation');
     setApiKey('');
     setBaseUrl('');
+    setUseServerGeneration(false);
     setIsSaved(false);
   }
 
@@ -97,6 +103,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
                     placeholder="例如: https://api.kuai.host/"
                     className="bg-gray-900 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                 />
+            </div>
+            
+            <div className="flex flex-col gap-2">
+                <label className="font-semibold text-gray-300">
+                    图片生成方式
+                </label>
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="radio"
+                            name="generation-method"
+                            checked={!useServerGeneration}
+                            onChange={() => {
+                                setUseServerGeneration(false);
+                                setIsSaved(false);
+                            }}
+                            className="w-4 h-4 text-blue-600 bg-gray-900 border-gray-600 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-300">前端生成（直接调用 API）</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="radio"
+                            name="generation-method"
+                            checked={useServerGeneration}
+                            onChange={() => {
+                                setUseServerGeneration(true);
+                                setIsSaved(false);
+                            }}
+                            className="w-4 h-4 text-blue-600 bg-gray-900 border-gray-600 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-300">服务器生成（后台处理）</span>
+                    </label>
+                </div>
+                <div className="text-sm text-gray-400">
+                    {useServerGeneration 
+                        ? "图片将在服务器后台生成并保存，支持更好的并发处理和文件管理。" 
+                        : "图片直接在浏览器中生成，无需服务器支持。"
+                    }
+                </div>
             </div>
         </div>
 

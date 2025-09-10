@@ -7,7 +7,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-import { generateEditedImage, generateFilteredImage, generateAdjustedImage, generateFusedImage, generateTexturedImage, removeBackgroundImage } from './services/geminiService';
+import { hybridImageService } from './services/hybridImageService';
 import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Spinner from './components/Spinner';
@@ -359,27 +359,27 @@ const EditorView: React.FC<{
   
   const handleApplyFilter = (prompt: string) => {
     setLastAction({ type: 'filters', prompt });
-    runGenerativeTask(() => generateFilteredImage(currentImageFile, prompt));
+    runGenerativeTask(() => hybridImageService.generateFilteredImage(currentImageFile, prompt));
   };
   
   const handleApplyAdjustment = (prompt: string) => {
     setLastAction({ type: 'adjust', prompt });
-    runGenerativeTask(() => generateAdjustedImage(currentImageFile, prompt));
+    runGenerativeTask(() => hybridImageService.generateAdjustedImage(currentImageFile, prompt));
   };
   
   const handleApplyFusion = (sourceImages: File[], prompt: string) => {
     setLastAction({ type: 'fusion', prompt, sourceImages });
-    runGenerativeTask(() => generateFusedImage(currentImageFile, sourceImages, prompt));
+    runGenerativeTask(() => hybridImageService.generateFusedImage(currentImageFile, sourceImages, prompt));
   };
 
   const handleApplyTexture = (prompt: string) => {
     setLastAction({ type: 'texture', prompt });
-    runGenerativeTask(() => generateTexturedImage(currentImageFile, prompt));
+    runGenerativeTask(() => hybridImageService.generateTexturedImage(currentImageFile, prompt));
   };
 
   const handleRemoveBackground = () => {
     setLastAction({ type: 'erase' });
-    runGenerativeTask(() => removeBackgroundImage(currentImageFile));
+    runGenerativeTask(() => hybridImageService.removeBackgroundImage(currentImageFile));
   };
 
   const handleApplyCrop = async () => {
@@ -419,7 +419,7 @@ const EditorView: React.FC<{
   const handleApplyRetouch = () => {
     if (retouchPrompt && retouchHotspot) {
       setLastAction({ type: 'retouch', prompt: retouchPrompt, hotspot: retouchHotspot });
-      runGenerativeTask(() => generateEditedImage(currentImageFile, retouchPrompt, retouchHotspot));
+      runGenerativeTask(() => hybridImageService.generateEditedImage(currentImageFile, retouchPrompt, retouchHotspot));
       setRetouchPrompt('');
     }
   };
@@ -433,22 +433,22 @@ const EditorView: React.FC<{
     let task: (() => Promise<string>) | null = null;
     switch (lastAction.type) {
       case 'retouch':
-        task = () => generateEditedImage(imageToEdit, lastAction.prompt, lastAction.hotspot);
+        task = () => hybridImageService.generateEditedImage(imageToEdit, lastAction.prompt, lastAction.hotspot);
         break;
       case 'adjust':
-        task = () => generateAdjustedImage(imageToEdit, lastAction.prompt);
+        task = () => hybridImageService.generateAdjustedImage(imageToEdit, lastAction.prompt);
         break;
       case 'filters':
-        task = () => generateFilteredImage(imageToEdit, lastAction.prompt);
+        task = () => hybridImageService.generateFilteredImage(imageToEdit, lastAction.prompt);
         break;
       case 'texture':
-        task = () => generateTexturedImage(imageToEdit, lastAction.prompt);
+        task = () => hybridImageService.generateTexturedImage(imageToEdit, lastAction.prompt);
         break;
       case 'erase':
-        task = () => removeBackgroundImage(imageToEdit);
+        task = () => hybridImageService.removeBackgroundImage(imageToEdit);
         break;
       case 'fusion':
-        task = () => generateFusedImage(imageToEdit, lastAction.sourceImages, lastAction.prompt);
+        task = () => hybridImageService.generateFusedImage(imageToEdit, lastAction.sourceImages, lastAction.prompt);
         break;
     }
 

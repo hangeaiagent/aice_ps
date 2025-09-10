@@ -22,7 +22,7 @@ Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google ais
 
 ## ✨ 主要功能
 
-Aice PS 结合了多种尖端 AI 能力，为您提供一站式的创意图片与视频解决方案：
+Aice PS 结合了多种尖端 AI 能力，为您提供一站式的创意图片与视频解决方案。现已支持**服务器端图片生成**，提供更好的性能和文件管理：
 
 -   **🚀 AI 图像生成**: 输入任意文本描述，即可由 `Imagen 4` 模型创造出细节丰富、富有创意的高质量图片，并支持多种宽高比。
 -   **✍️ 智能修饰 (局部编辑)**: 在图片上轻松点击指定位置，通过简单的文字指令（如“移除这个物体”、“把衬衫变成红色”）进行精准、无缝的局部修改。
@@ -35,14 +35,62 @@ Aice PS 结合了多种尖端 AI 能力，为您提供一站式的创意图片�
 -   **🎵 音画志 (BeatSync)**: 上传一张图片和一段音乐，AI 会自动生成多种风格化图集，并根据音乐节拍一键生成带有酷炫转场效果的视频短片。
 -   **📚 NB 提示词库**: 内置一个可搜索、分页的模板库，提供丰富的创意起点。点击模板即可加载预设图片和提示词，轻松开始您的创作之旅。
 -   **🛠️ 基础编辑套件**: 提供无限制的裁剪、撤销/重做、实时对比原图、保存和下载等基础功能，满足您的日常编辑需求。
+-   **🖥️ 服务器端生成**: 支持后台图片生成和本地存储，可配置 AWS S3 云存储，提供更好的性能和文件管理。
 
 ## 🛠️ 技术栈
 
-- **前端**: React 19 (通过 esm.sh 加载，无构建步骤)
-- **语言**: TypeScript
+- **前端**: React 19 + TypeScript + Vite
+- **后端**: Node.js + Express
 - **AI 模型**: Google Gemini API (`gemini-2.5-flash-image-preview`, `imagen-4.0-generate-001`, `gemini-2.5-flash`)
-- **样式**: Tailwind CSS (通过 CDN)
-- **组件库**: `react-image-crop`
+- **样式**: Tailwind CSS
+- **组件库**: `react-image-crop`, `framer-motion`
+- **存储**: 本地文件系统 / AWS S3
+- **部署**: 支持传统部署和容器化部署
+
+## 🚀 快速开始
+
+### 前端模式（直接运行）
+
+```bash
+# 克隆项目
+git clone https://github.com/your-repo/aice-ps.git
+cd aice-ps
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+```
+
+### 服务器模式（推荐）
+
+服务器模式提供更好的性能和文件管理，支持本地存储和 AWS S3 存储。
+
+```bash
+# 1. 快速启动（推荐）
+./start-dev.sh  # 同时启动前端和后端
+
+# 2. 或者分别启动
+./start-server.sh  # 只启动后端服务器
+npm run dev        # 启动前端开发服务器
+```
+
+### 配置
+
+1. **设置 API 密钥**：
+   - 复制 `server/.env.example` 为 `server/.env`
+   - 设置您的 `GEMINI_API_KEY`
+
+2. **选择生成模式**：
+   - 在应用设置中选择"服务器生成（后台处理）"
+   - 或设置环境变量 `VITE_USE_SERVER_GENERATION=true`
+
+3. **存储配置**（可选）：
+   - 默认使用本地存储（`server/uploads/`）
+   - 配置 AWS S3 存储请参考 [SERVER_SETUP.md](./SERVER_SETUP.md)
+
+详细的服务器配置和部署指南请参考 [SERVER_SETUP.md](./SERVER_SETUP.md)。
 
 ## 🎨 核心 AI 模型介绍
 
@@ -72,6 +120,9 @@ Aice PS 的强大功能由 Google 最先进的一系列生成式 AI 模型驱动
 - [x] 增加模板功能 (NB 提示词库)
 - [x] 提示词集中营 (NB 提示词库)
 - [x] 重新支持Gemini API，大家也可以自行部署并使用兼容gemini api的API来使用。[推荐可大方使用的极具性价比API平台，源头价格更低](https://cnb.build/no.1/api/-/issues/2)
+- [x] 服务器端图片生成：支持后台生成、本地存储和 AWS S3 云存储
+- [x] 混合生成模式：自动在服务器生成和前端生成之间切换
+- [x] 批量图片处理：优化 BeatSync 等功能的并发处理能力
 - [] 芝士香蕉功能-计划中
 - [] 接入 OpenRouter api，可每天免费调用50次 Nano Banana
 - [] ……

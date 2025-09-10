@@ -4,7 +4,7 @@
 */
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateDecadeImage } from '../services/geminiService';
+import { hybridImageService } from '../services/hybridImageService';
 import { createAlbumPage } from '../lib/albumUtils';
 import PolaroidCard from './PolaroidCard';
 import { UploadIcon, DownloadIcon } from './icons';
@@ -103,7 +103,7 @@ const PastForwardPage: React.FC = () => {
 
         try {
             const primaryPrompt = `Reimagine the person in this photo in the style of the ${decade}. This includes clothing, hairstyle, photo quality, and the overall aesthetic of that decade. The output must be a photorealistic image showing the person clearly.`;
-            const resultUrl = await generateDecadeImage(uploadedImage, primaryPrompt);
+            const resultUrl = await hybridImageService.generateDecadeImage(uploadedImage, primaryPrompt);
             setGeneratedImages(prev => ({
                 ...prev,
                 [decade]: { status: 'done', url: resultUrl },
