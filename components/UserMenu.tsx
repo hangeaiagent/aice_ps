@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import CreditsDisplay from './CreditsDisplay';
 
 const UserMenu: React.FC = () => {
   const { user, signOut, isLoading } = useAuth();
+  const { permissions, getPlanInfo } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +109,7 @@ const UserMenu: React.FC = () => {
           >
             {/* 用户信息头部 */}
             <div className="p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-gray-700/50">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-3">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium">
                   {getAvatarUrl() ? (
                     <img
@@ -125,8 +128,18 @@ const UserMenu: React.FC = () => {
                   <div className="text-gray-400 text-sm truncate">
                     {user?.email}
                   </div>
+                  {permissions && (
+                    <div className="text-xs text-blue-300 mt-1">
+                      {getPlanInfo()?.name}
+                    </div>
+                  )}
                 </div>
               </div>
+              
+              {/* 积分显示 */}
+              {permissions && (
+                <CreditsDisplay compact={true} showDetails={false} />
+              )}
             </div>
 
             {/* 菜单项 */}
@@ -142,6 +155,19 @@ const UserMenu: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 个人资料
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  window.open('/pricing', '_blank');
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                套餐管理
               </button>
 
               <button
