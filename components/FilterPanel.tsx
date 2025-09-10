@@ -4,7 +4,7 @@
 */
 
 import React, { useState } from 'react';
-import { generateCreativeSuggestions } from '../services/geminiService';
+import { hybridImageService } from '../services/hybridImageService';
 import { SparkleIcon, ChevronDownIcon } from './icons';
 import Spinner from './Spinner';
 
@@ -53,7 +53,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, isLoading, cur
     setIsSuggesting(true);
     onError(''); // Clear previous errors
     try {
-        const suggestions = await generateCreativeSuggestions(currentImage, 'filter');
+        const suggestions = await hybridImageService.generateCreativeSuggestions(currentImage, 'filter');
         setAiPresets(suggestions);
         setIsPresetsVisible(true); // Show presets when new ones are loaded
     } catch (e) {

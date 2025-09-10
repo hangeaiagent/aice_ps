@@ -6,7 +6,7 @@
 // FIX: Corrected React import statement. The 'a' was a typo.
 import React, { useState, useEffect } from 'react';
 import { UploadIcon, PaintBrushIcon, TemplateLibraryIcon } from './icons';
-import { generateImageFromText } from '../services/geminiService';
+import { hybridImageService } from '../services/hybridImageService';
 import Spinner from './Spinner';
 import { Template } from '../App';
 
@@ -134,7 +134,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     setIsGenerating(true);
     setGenerationError(null);
     try {
-        const dataUrl = await generateImageFromText(generationPrompt, aspectRatio);
+        const dataUrl = await hybridImageService.generateImageFromText(generationPrompt, aspectRatio);
         onImageGenerated(dataUrl);
     } catch (e) {
         console.error(e);

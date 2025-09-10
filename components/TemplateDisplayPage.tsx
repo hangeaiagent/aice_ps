@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Template } from '../App';
 import Spinner from './Spinner';
-import { generateAdjustedImage } from '../services/geminiService';
+import { hybridImageService } from '../services/hybridImageService';
 import { PaintBrushIcon, CopyIcon, CheckIcon, ZoomInIcon } from './icons';
 import ImageLightbox from './ImageLightbox';
 
@@ -105,7 +105,7 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
     setError(null);
     
     try {
-        const resultDataUrl = await generateAdjustedImage(beforeImageFile, template.prompt);
+        const resultDataUrl = await hybridImageService.generateAdjustedImage(beforeImageFile, template.prompt);
         setAfterImageUrl(resultDataUrl);
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '发生未知错误。';
