@@ -1,0 +1,54 @@
+# AicePS 项目开发规则
+
+## 数据库设计规范
+
+### 注释格式（PostgreSQL）
+- 表注释语法：`COMMENT ON TABLE 表名 IS '表的注释';`
+- 字段注释语法：`COMMENT ON COLUMN 表名.字段名 IS '字段的注释';`
+- 注释应该简洁明了，使用中文说明字段用途或业务含义
+- 先创建表结构，再使用 COMMENT ON 语句添加注释
+- 区块注释使用 `--` 单行注释格式
+
+### 主键和外键规范
+- 基于 Supabase 数据库系统，用户表使用 UUID 作为主键
+- 所有关联用户表的外键字段类型必须为 UUID
+- 外键约束语法：`user_id UUID REFERENCES users(id) ON DELETE CASCADE`
+
+### 字段命名规范
+- 使用下划线命名法（snake_case）
+- 时间字段统一使用 `TIMESTAMP WITH TIME ZONE` 类型
+- 状态字段使用 VARCHAR 类型，并在注释中说明可选值
+- 金额字段使用 `DECIMAL(10,2)` 类型
+
+### 索引规范
+- 为经常查询的字段创建索引
+- 索引命名格式：`idx_表名_字段名`
+- 为外键字段创建索引以提高查询性能
+
+## 代码风格
+
+### TypeScript/JavaScript
+- 使用 ES6+ 语法
+- 优先使用 const，其次 let，避免 var
+- 函数优先使用箭头函数
+- 接口和类型定义使用 PascalCase
+
+### React 组件
+- 组件名使用 PascalCase
+- Props 接口以组件名 + Props 命名
+- 使用函数式组件和 Hooks
+- 状态管理优先使用 useState 和 useEffect
+
+## 项目特定规则
+
+### 端口配置
+- 开发环境固定使用端口 8889
+- 启动前需要关闭相关应用端口和应用
+- 使用命令：`npx netlify dev --port 8888`
+
+### 部署配置
+- 生产环境部署在 EC2 服务器 54.89.140.250
+- 项目目录：/home/ec2-user/nanobanana
+- 域名：nanobanana.gitagent.io
+- 通过 Nginx 反向代理访问
+- 使用独立的 conda 环境 AicePS
