@@ -995,3 +995,332 @@ COMMENT ON COLUMN pay_subscription_plans.plan_code IS '套餐代码：starter, a
 
 ---
 
+_**User (2025-09-10 05:34Z)**_
+
+提交代码到github  @https://github.com/hangeaiagent/aice_ps 
+
+
+---
+
+_**Assistant**_
+
+我来帮您将代码提交到 GitHub 仓库。根据搜索结果，我看到您的项目是 [Aice PS - AI 图片编辑器](https://github.com/hangeaiagent/aice_ps)，这是一个基于 Google Gemini API 的强大 AI 修图应用。
+
+---
+
+## Todo List
+
+- [-] 检查当前Git状态和远程仓库配置
+- [ ] 添加修改的文件到Git暂存区
+- [ ] 提交更改到本地仓库
+- [ ] 推送代码到GitHub远程仓库
+
+---
+
+首先让我检查当前的 Git 状态和远程仓库配置：
+
+---
+
+```bash
+cd /Users/a1/work/aice_ps && git status
+```
+
+```
+For more details, please visit https://support.apple.com/kb/HT208050.
+(base) 1deMacBook-Air:aice_ps a1$ cd /Users/a1/work/aice_ps && git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .gitignore
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        .cursorindexingignore
+        .cursorrules
+        .playwright-mcp/
+        .specstory/
+        doc/
+        package-lock.json
+
+no changes added to commit (use "git add" and/or "git commit -a")
+```
+
+---
+
+现在检查远程仓库配置：
+
+---
+
+```bash
+git remote -v
+```
+
+```
+(base) 1deMacBook-Air:aice_ps a1$ git remote -v
+origin  https://github.com/aigem/aice_ps (fetch)
+origin  https://github.com/aigem/aice_ps (push)
+```
+
+---
+
+我看到当前的远程仓库指向的是 `aigem/aice_ps`，但您要提交到 `hangeaiagent/aice_ps`。让我先更新远程仓库地址：
+
+---
+
+```bash
+git remote set-url origin https://github.com/hangeaiagent/aice_ps.git
+```
+
+```
+(base) 1deMacBook-Air:aice_ps a1$ git remote set-url origin https://github.com/hangeaiagent/aice_ps.git
+(base) 1deMacBook-Air:aice_ps a1$
+```
+
+---
+
+验证远程仓库地址已更新：
+
+---
+
+```bash
+git remote -v
+```
+
+```
+(base) 1deMacBook-Air:aice_ps a1$ git remote -v
+origin  https://github.com/hangeaiagent/aice_ps.git (fetch)
+origin  https://github.com/hangeaiagent/aice_ps.git (push)
+(base) 1deMacBook-Air:aice_ps a1$
+```
+
+---
+
+## Todo List
+
+- [x] 检查当前Git状态和远程仓库配置
+- [-] 添加修改的文件到Git暂存区
+- [ ] 提交更改到本地仓库
+- [ ] 推送代码到GitHub远程仓库
+
+---
+
+现在添加所有修改的文件到 Git 暂存区：
+
+---
+
+```bash
+git add .
+```
+
+```
+(base) 1deMacBook-Air:aice_ps a1$ git add .
+```
+
+---
+
+检查暂存区状态：
+
+---
+
+```bash
+git status
+```
+
+```
+
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        new file:   .cursorindexingignore
+        new file:   .cursorrules
+        modified:   .gitignore
+        new file:   .playwright-mcp/edit-1757481159795-edited.png
+        new file:   .playwright-mcp/edit-1757481295288-edited.png
+        new file:   .playwright-mcp/edit-1757481512809-edited.png
+        new file:   .specstory/.gitignore
+        new file:   ".specstory/history/2025-09-09_15-06Z-\345\210\206\346\236\220\344\272\247\345\223\201\3
+46\234\254\345\234\260\351\203\250\347\275\262\345\222\214\347\216\257\345\242\203\351\205\215\347\275\256.m
+d"
+
+        new file:   ".specstory/history/2025-09-10_01-41Z-\345\210\206\346\236\220\344\274\232\345\221\230\3
+47\256\241\347\220\206\345\222\214\344\273\230\350\264\271\347\256\241\347\220\206\346\226\271\346\241\210.m
+d"
+
+        new file:   .specstory/history/2025-09-10_05-34Z-modify-users-table-for-uuid-primary-key.md
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/01\344\274\232\345\221\230\347\256
+\241\347\220\206\346\225\260\346\215\256\345\272\223\347\273\223\346\236\204\350\256\276\350\256\241\346\226
+\271\346\241\210.md"
+
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/02\345\211\215\345\220\216\345\217
+\260\346\212\200\346\234\257\346\236\266\346\236\204\346\226\271\346\241\210.md"
+
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/03PayPal\346\224\257\344\273\230\3
+46\216\245\345\217\243\345\274\200\345\217\221\346\226\271\346\241\210.md"
+
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/04\344\274\232\345\221\230\346\235
+\203\351\231\220\347\256\241\347\220\206\345\256\236\347\216\260\346\226\271\346\241\210.md"
+
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/aiceps_database_schema.sql"
+        new file:   "doc/\346\224\257\344\273\230\346\216\245\345\217\243/aiceps_database_schema_fixed.sql"
+        new file:   package-lock.json
+
+```
+
+---
+
+## Todo List
+
+- [x] 检查当前Git状态和远程仓库配置
+- [x] 添加修改的文件到Git暂存区
+- [-] 提交更改到本地仓库
+- [ ] 推送代码到GitHub远程仓库
+
+---
+
+现在提交更改到本地仓库：
+
+---
+
+```bash
+git commit -m "feat: 添加会员管理和支付接口完整方案
+
+- 新增会员管理数据库结构设计方案
+- 添加前后台技术架构方案  
+- 实现PayPal支付接口开发方案
+- 完善会员权限管理实现方案
+- 创建完整的PostgreSQL数据库脚本
+- 修复数据库注释语法兼容PostgreSQL
+- 更新项目开发规范和cursor规则
+- 支持UUID主键和Supabase数据库系统"
+```
+
+```
+
+[main d75160a] feat: 添加会员管理和支付接口完整方案
+ 17 files changed, 9072 insertions(+)
+ create mode 100644 .cursorindexingignore
+ create mode 100644 .cursorrules
+ create mode 100644 .playwright-mcp/edit-1757481159795-edited.png
+ create mode 100644 .playwright-mcp/edit-1757481295288-edited.png
+ create mode 100644 .playwright-mcp/edit-1757481512809-edited.png
+ create mode 100644 .specstory/.gitignore
+ create mode 100644 ".specstory/history/2025-09-09_15-06Z-\345\210\206\346\236\220\344\272\247\345\223\201\3
+46\234\254\345\234\260\351\203\250\347\275\262\345\222\214\347\216\257\345\242\203\351\205\215\347\275\256.m
+d"
+
+ create mode 100644 ".specstory/history/2025-09-10_01-41Z-\345\210\206\346\236\220\344\274\232\345\221\230\3
+47\256\241\347\220\206\345\222\214\344\273\230\350\264\271\347\256\241\347\220\206\346\226\271\346\241\210.m
+d"
+
+ create mode 100644 .specstory/history/2025-09-10_05-34Z-modify-users-table-for-uuid-primary-key.md
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/01\344\274\232\345\221\230\347\256
+\241\347\220\206\346\225\260\346\215\256\345\272\223\347\273\223\346\236\204\350\256\276\350\256\241\346\226
+\271\346\241\210.md"
+
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/02\345\211\215\345\220\216\345\217
+\260\346\212\200\346\234\257\346\236\266\346\236\204\346\226\271\346\241\210.md"
+
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/03PayPal\346\224\257\344\273\230\3
+46\216\245\345\217\243\345\274\200\345\217\221\346\226\271\346\241\210.md"
+
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/04\344\274\232\345\221\230\346\235
+\203\351\231\220\347\256\241\347\220\206\345\256\236\347\216\260\346\226\271\346\241\210.md"
+
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/aiceps_database_schema.sql"
+ create mode 100644 "doc/\346\224\257\344\273\230\346\216\245\345\217\243/aiceps_database_schema_fixed.sql"
+ create mode 100644 package-lock.json
+```
+
+---
+
+## Todo List
+
+- [x] 检查当前Git状态和远程仓库配置
+- [x] 添加修改的文件到Git暂存区
+- [x] 提交更改到本地仓库
+- [-] 推送代码到GitHub远程仓库
+
+---
+
+现在推送代码到 GitHub 远程仓库：
+
+---
+
+```bash
+git push origin main
+```
+
+```
+(base) 1deMacBook-Air:aice_ps a1$ git push origin main
+Enumerating objects: 26, done.
+Counting objects: 100% (26/26), done.
+Delta compression using up to 4 threads
+Compressing objects: 100% (22/22), done.
+Writing objects: 100% (24/24), 5.94 MiB | 9.16 MiB/s, done.
+Total 24 (delta 4), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (4/4), completed with 2 local objects.
+To https://github.com/hangeaiagent/aice_ps.git
+   18ff440..d75160a  main -> main
+```
+
+---
+
+## Todo List
+
+- [x] 检查当前Git状态和远程仓库配置
+- [x] 添加修改的文件到Git暂存区
+- [x] 提交更改到本地仓库
+- [x] 推送代码到GitHub远程仓库
+
+---
+
+## ✅ 代码已成功提交到 GitHub！
+
+### 🎉 提交完成摘要：
+
+**仓库地址：** [https://github.com/hangeaiagent/aice_ps](https://github.com/hangeaiagent/aice_ps)
+
+**提交信息：** `feat: 添加会员管理和支付接口完整方案`
+
+### 📋 本次提交包含的主要内容：
+
+#### 1. **会员管理系统完整方案**
+- `doc/支付接口/01会员管理数据库结构设计方案.md` - 数据库结构设计
+- `doc/支付接口/02前后台技术架构方案.md` - 技术架构方案
+- `doc/支付接口/03PayPal支付接口开发方案.md` - PayPal 支付集成
+- `doc/支付接口/04会员权限管理实现方案.md` - 权限管理实现
+
+#### 2. **数据库脚本**
+- `doc/支付接口/aiceps_database_schema.sql` - 原始数据库脚本
+- `doc/支付接口/aiceps_database_schema_fixed.sql` - 修复版PostgreSQL兼容脚本
+
+#### 3. **项目配置文件**
+- `.cursorrules` - 项目开发规范和数据库注释规则
+- `.cursorindexingignore` - Cursor 索引忽略配置
+- 更新的 `.gitignore` 文件
+
+#### 4. **开发历史记录**
+- `.specstory/` 目录下的开发历史文档
+
+### 🚀 关键特性：
+
+1. **完整的会员体系** - 支持入门版、进阶版、专业版、买断版四种套餐
+2. **PostgreSQL 兼容** - 修复了数据库注释语法，完全兼容 Supabase
+3. **UUID 主键** - 所有表使用 UUID 主键，符合现代数据库设计
+4. **PayPal 集成** - 完整的支付接口开发方案
+5. **权限管理** - 基于积分的功能使用控制系统
+
+### 📊 提交统计：
+- **17 个文件** 被修改或新增
+- **9,072 行代码** 新增
+- **5.94 MB** 数据推送到远程仓库
+
+您的 [Aice PS AI 图片编辑器](https://github.com/hangeaiagent/aice_ps) 项目现在已经包含了完整的会员管理和支付系统方案！这将为您的 AI 修图应用提供强大的商业化支持。
+
+---
+
