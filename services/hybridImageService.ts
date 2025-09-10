@@ -1,9 +1,12 @@
 /**
  * 混合图片服务 - 根据配置选择使用本地 Gemini 服务或后端服务
+ * 集成权限验证和积分管理
  */
 
 import * as geminiService from './geminiService';
 import { apiService, ImageGenerationResult, BatchImageResult } from './apiService';
+import { permissionService, FeatureType } from './permissionService';
+import { supabase } from '../lib/supabase';
 
 // 检查是否应该使用服务器端生成
 const shouldUseServerGeneration = (): boolean => {
@@ -44,10 +47,75 @@ const convertApiResultToDataUrl = async (result: ImageGenerationResult): Promise
   }
 };
 
+// 权限检查结果接口
+interface PermissionCheckResult {
+  allowed: boolean;
+  reason?: string;
+  message?: string;
+}
+
 // 混合服务类
 class HybridImageService {
+  /**
+   * 检查用户权限并消费积分
+   */
+  private async checkPermissionAndConsumeCredits(
+    featureType: FeatureType, 
+    resourceData?: any
+  ): Promise<PermissionCheckResult> {
+    try {
+      // 获取当前用户
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        return {
+          allowed: false,
+          reason: 'not_authenticated',
+          message: '请先登录后使用该功能'
+        };
+      }
+
+      // 检查权限
+      const permissionCheck = await permissionService.checkFeaturePermission(user, featureType, resourceData);
+      
+      if (!permissionCheck.allowed) {
+        return {
+          allowed: false,
+          reason: permissionCheck.reason,
+          message: permissionCheck.message
+        };
+      }
+
+      // 消费积分
+      const consumeResult = await permissionService.consumeCredits(user, featureType, resourceData);
+      
+      if (!consumeResult.success) {
+        return {
+          allowed: false,
+          reason: consumeResult.reason,
+          message: consumeResult.message
+        };
+      }
+
+      return { allowed: true };
+    } catch (error) {
+      console.error('权限检查失败:', error);
+      return {
+        allowed: false,
+        reason: 'permission_check_failed',
+        message: '权限检查失败，请稍后重试'
+      };
+    }
+  }
   // 从文本生成图片
   async generateImageFromText(prompt: string, aspectRatio: string = '1:1'): Promise<string> {
+    // 权限检查和积分消费
+    const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { aspectRatio });
+    
+    if (!permissionCheck.allowed) {
+      throw new Error(permissionCheck.message || '权限不足');
+    }
+
     if (shouldUseServerGeneration()) {
       try {
         const result = await apiService.generateImageFromText(prompt, aspectRatio);
@@ -63,6 +131,13 @@ class HybridImageService {
 
   // 生成编辑后的图片
   async generateEditedImage(imageFile: File, prompt: string, hotspot: { x: number; y: number }): Promise<string> {
+    // 权限检查和积分消费
+    const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { type: 'edit' });
+    
+    if (!permissionCheck.allowed) {
+      throw new Error(permissionCheck.message || '权限不足');
+    }
+
     if (shouldUseServerGeneration()) {
       try {
         const result = await apiService.generateEditedImage(imageFile, prompt, hotspot);
@@ -78,6 +153,13 @@ class HybridImageService {
 
   // 生成滤镜效果图片
   async generateFilteredImage(imageFile: File, prompt: string): Promise<string> {
+    // 权限检查和积分消费
+    const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { type: 'filter' });
+    
+    if (!permissionCheck.allowed) {
+      throw new Error(permissionCheck.message || '权限不足');
+    }
+
     if (shouldUseServerGeneration()) {
       try {
         const result = await apiService.generateFilteredImage(imageFile, prompt);

@@ -7,7 +7,11 @@
 import React, { useState, useEffect } from 'react';
 import { UploadIcon, PaintBrushIcon, TemplateLibraryIcon } from './icons';
 import { hybridImageService } from '../services/hybridImageService';
+import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import Spinner from './Spinner';
+import CreditsDisplay from './CreditsDisplay';
+import PermissionGuard from './PermissionGuard';
 import { Template } from '../App';
 
 // New component to handle fetching and displaying template icon
@@ -68,6 +72,8 @@ interface StartScreenProps {
 }
 
 const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerated, onTemplateSelect, onShowTemplateLibrary }) => {
+  const { isAuthenticated } = useAuth();
+  const { permissions, hasFeature, checkPermission } = usePermissions();
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [generationPrompt, setGenerationPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -131,6 +137,23 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
         setGenerationError("请输入描述内容。");
         return;
     }
+
+    // 检查登录状态
+    if (!isAuthenticated) {
+        setGenerationError("请先登录后使用图片生成功能。");
+        // 触发登录模态框
+        const event = new CustomEvent('openAuthModal');
+        window.dispatchEvent(event);
+        return;
+    }
+
+    // 检查权限
+    const permissionCheck = await checkPermission('nano_banana', { aspectRatio });
+    if (!permissionCheck.allowed) {
+        setGenerationError(permissionCheck.message || '权限不足');
+        return;
+    }
+
     setIsGenerating(true);
     setGenerationError(null);
     try {
@@ -161,6 +184,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
         <h3 className="text-3xl font-extrabold tracking-tight text-gray-100 sm:text-4xl md:text-5xl">至强改图模型&超好用应用</h3>
         <p className="font-semibold text-yellow-300">用AiStudio后台API免费用,也<a href="https://nb.kuai.host/">可 [自行部署]（Gemini API兼容）</a></p>
       </div>
+      
+      {/* 积分显示 */}
+      {isAuthenticated && permissions && (
+        <div className="w-full max-w-md">
+          <CreditsDisplay compact={true} className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-3" />
+        </div>
+      )}
       
       <div className="w-full max-w-5xl mt-8 grid grid-cols-1 md:grid-cols-10 gap-6 items-stretch">
         
@@ -200,13 +230,23 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                 <div className="flex-grow"></div> {/* Spacer */}
                 <button
                     onClick={handleGenerate}
-                    disabled={isGenerating}
+                    disabled={isGenerating || (!isAuthenticated && !hasFeature('nano_banana'))}
                     className="relative w-full inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-purple-600 rounded-full cursor-pointer group hover:bg-purple-500 transition-colors disabled:bg-purple-800 disabled:cursor-not-allowed"
                 >
                     {isGenerating ? (
                         <>
                             <Spinner className="w-6 h-6 mr-3" />
                             正在生成中...
+                        </>
+                    ) : !isAuthenticated ? (
+                        <>
+                            <PaintBrushIcon className="w-6 h-6 mr-3" />
+                            登录后生成图片
+                        </>
+                    ) : !hasFeature('nano_banana') ? (
+                        <>
+                            <PaintBrushIcon className="w-6 h-6 mr-3" />
+                            升级后生成图片
                         </>
                     ) : (
                         <>
