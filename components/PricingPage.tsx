@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { CheckIcon, CreditCardIcon, TrendingUpIcon } from './icons';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import PayPalButton from './PayPalButton';
 
 interface SubscriptionPlan {
   id: string;
@@ -40,6 +41,7 @@ const PricingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [showPayment, setShowPayment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPlans();
@@ -77,8 +79,26 @@ const PricingPage: React.FC = () => {
       return;
     }
 
-    // TODO: 实现支付逻辑
-    alert(`即将订阅 ${plan.plan_name} 套餐，支付功能开发中...`);
+    // 显示支付组件
+    setShowPayment(plan.id);
+  };
+
+  const handlePaymentSuccess = (details: any) => {
+    console.log('Payment successful:', details);
+    setShowPayment(null);
+    // 显示成功消息
+    alert('支付成功！您的套餐已激活。');
+    // 可以在这里刷新用户信息或跳转到成功页面
+  };
+
+  const handlePaymentError = (error: any) => {
+    console.error('Payment error:', error);
+    setShowPayment(null);
+    alert(`支付失败: ${error.message || '未知错误'}`);
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPayment(null);
   };
 
   const getFeatureList = (features: SubscriptionPlan['features']) => {
@@ -252,21 +272,46 @@ const PricingPage: React.FC = () => {
                 </div>
 
                 {/* 订阅按钮 */}
-                <button
-                  onClick={() => handleSubscribe(plan)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                    isPopular
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-lg hover:shadow-xl'
-                      : plan.plan_code === 'free'
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <CreditCardIcon className="w-4 h-4" />
-                    {plan.plan_code === 'free' ? '当前套餐' : '立即订阅'}
+                {showPayment === plan.id ? (
+                  <div className="space-y-4">
+                    <div className="text-center text-sm text-gray-400 mb-2">
+                      选择支付方式
+                    </div>
+                    <PayPalButton
+                      planId={plan.id}
+                      planCode={plan.plan_code}
+                      amount={getPrice(plan)}
+                      currency="USD"
+                      isSubscription={plan.plan_code !== 'lifetime'}
+                      onSuccess={handlePaymentSuccess}
+                      onError={handlePaymentError}
+                      onCancel={handlePaymentCancel}
+                      className="w-full"
+                    />
+                    <button
+                      onClick={() => setShowPayment(null)}
+                      className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      取消支付
+                    </button>
                   </div>
-                </button>
+                ) : (
+                  <button
+                    onClick={() => handleSubscribe(plan)}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                      isPopular
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-lg hover:shadow-xl'
+                        : plan.plan_code === 'free'
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <CreditCardIcon className="w-4 h-4" />
+                      {plan.plan_code === 'free' ? '当前套餐' : '立即订阅'}
+                    </div>
+                  </button>
+                )}
               </motion.div>
             );
           })}
