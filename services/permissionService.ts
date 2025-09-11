@@ -71,98 +71,61 @@ class PermissionService {
     }
 
     try {
-      // 查询用户订阅信息
-      const { data: subscription, error: subError } = await supabase
-        .from('pay_user_subscriptions')
-        .select(`
-          *,
-          pay_subscription_plans (*)
-        `)
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
+      // 通过后台API获取用户权限信息
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/user-permissions/${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (subError && subError.code !== 'PGRST116') {
-        console.error('获取用户订阅失败:', subError);
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
       }
 
-      // 查询用户积分信息
-      const { data: credits, error: creditsError } = await supabase
-        .from('pay_user_credits')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (creditsError && creditsError.code !== 'PGRST116') {
-        console.error('获取用户积分失败:', creditsError);
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || '获取用户权限失败');
       }
 
-      let permissions: UserPermissions;
+      const { permissions: apiPermissions, subscription, credits } = result.data;
 
-      if (subscription?.pay_subscription_plans) {
-        // 付费用户权限
-        const plan = subscription.pay_subscription_plans;
-        permissions = {
-          plan_code: plan.plan_code,
-          plan_name: plan.plan_name,
+      // 直接使用后台API返回的权限信息
+      const userPermissions: UserPermissions = {
+        plan_code: apiPermissions.planCode,
+        plan_name: apiPermissions.planName,
           features: {
-            nano_banana: true,
-            veo3_video: plan.plan_code !== 'free',
-            sticker: true,
-            batch_processing: ['advanced', 'professional', 'lifetime'].includes(plan.plan_code),
-            professional_canvas: ['professional', 'lifetime'].includes(plan.plan_code),
-            all_templates: true
+          nano_banana: apiPermissions.features.nano_banana || false,
+          veo3_video: apiPermissions.features.veo3_video || false,
+          sticker: apiPermissions.features.sticker || false,
+          batch_processing: apiPermissions.features.batch_processing || false,
+          professional_canvas: apiPermissions.features.professional_canvas || false,
+          all_templates: apiPermissions.features.templates === 'all'
           },
           limits: {
-            daily_usage: this.getDailyUsageLimit(plan.plan_code),
-            concurrent_jobs: this.getConcurrentJobsLimit(plan.plan_code),
-            credits_monthly: plan.credits_monthly || 0
+          daily_usage: this.getDailyUsageLimit(apiPermissions.planCode),
+          concurrent_jobs: this.getConcurrentJobsLimit(apiPermissions.planCode),
+          credits_monthly: apiPermissions.monthlyQuota || 0
           },
           credits: {
             total_credits: credits?.total_credits || 0,
             used_credits: credits?.used_credits || 0,
-            available_credits: credits?.available_credits || 0,
-            monthly_quota: credits?.monthly_quota || plan.credits_monthly || 0
-          },
-          priority: this.getPriorityLevel(plan.plan_code),
-          subscription_status: 'active'
-        };
-      } else {
-        // 免费用户权限
-        permissions = {
-          plan_code: 'free',
-          plan_name: '免费版',
-          features: {
-            nano_banana: true,
-            veo3_video: false,
-            sticker: true,
-            batch_processing: false,
-            professional_canvas: false,
-            all_templates: false
-          },
-          limits: {
-            daily_usage: 3, // 每日3次免费使用
-            concurrent_jobs: 1,
-            credits_monthly: 0
-          },
-          credits: {
-            total_credits: 0,
-            used_credits: 0,
-            available_credits: 0,
-            monthly_quota: 0
-          },
-          priority: 'low',
-          subscription_status: 'free'
-        };
-      }
+          available_credits: apiPermissions.creditsRemaining || 0,
+          monthly_quota: apiPermissions.monthlyQuota || 0
+        },
+        priority: this.getPriorityLevel(apiPermissions.planCode),
+        subscription_status: apiPermissions.isSubscribed ? (apiPermissions.subscriptionStatus || 'active') : 'none'
+      };
 
       // 缓存权限信息
       this.permissionsCache.set(cacheKey, {
-        permissions,
+        permissions: userPermissions,
         expires: Date.now() + this.CACHE_TTL
       });
 
-      return permissions;
+      return userPermissions;
     } catch (error) {
       console.error('获取用户权限失败:', error);
       // 返回默认免费权限
@@ -175,54 +138,44 @@ class PermissionService {
    */
   async checkFeaturePermission(user: User, featureType: FeatureType, resourceData?: any): Promise<PermissionCheckResult> {
     try {
-      const permissions = await this.getUserPermissions(user);
+      // 通过后台API检查功能权限
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/user-permissions/${user.id}/check-feature`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feature: featureType,
+          resourceData
+        })
+      });
 
-      // 检查功能是否可用
-      if (!permissions.features[featureType]) {
-        return {
-          allowed: false,
-          reason: 'feature_not_available',
-          message: `功能 ${featureType} 在当前套餐中不可用，请升级套餐`
-        };
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
       }
 
-      // 检查每日使用限制（免费用户）
-      if (permissions.subscription_status === 'free' && permissions.limits.daily_usage) {
-        const todayUsage = await this.getTodayUsageCount(user.id, featureType);
-        if (todayUsage >= permissions.limits.daily_usage) {
-          return {
-            allowed: false,
-            reason: 'daily_limit_exceeded',
-            message: `今日免费使用次数已用完，请明天再试或升级套餐`
-          };
-        }
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || '检查功能权限失败');
       }
 
-      // 检查积分是否足够
-      const creditsRequired = this.getCreditsRequired(featureType, resourceData);
-      if (creditsRequired > 0 && permissions.credits.available_credits < creditsRequired) {
+      const { canUse, hasFeatureAccess, hasEnoughCredits, creditsRequired, creditsRemaining, reason, planCode } = result.data;
+
+      if (!canUse) {
         return {
           allowed: false,
-          reason: 'insufficient_credits',
-          message: `积分不足，需要 ${creditsRequired} 积分，当前可用 ${permissions.credits.available_credits} 积分`,
+          reason: !hasFeatureAccess ? 'feature_not_available' : 'insufficient_credits',
+          message: reason || '功能不可用',
           credits_required: creditsRequired
-        };
-      }
-
-      // 检查并发任务限制
-      const runningJobs = await this.getRunningJobsCount(user.id);
-      if (runningJobs >= (permissions.limits.concurrent_jobs || 1)) {
-        return {
-          allowed: false,
-          reason: 'concurrent_limit_exceeded',
-          message: `并发任务数已达上限，请等待当前任务完成`
         };
       }
 
       return {
         allowed: true,
         credits_required: creditsRequired,
-        priority_level: permissions.priority
+        priority_level: this.getPriorityLevel(planCode)
       };
     } catch (error) {
       console.error('权限检查失败:', error);
@@ -245,43 +198,41 @@ class PermissionService {
         return { success: true, credits_consumed: 0 };
       }
 
-      // 检查权限
-      const permissionCheck = await this.checkFeaturePermission(user, featureType, resourceData);
-      if (!permissionCheck.allowed) {
-        return {
-          success: false,
-          reason: permissionCheck.reason,
-          message: permissionCheck.message
-        };
-      }
-
-      // 扣除积分
-      const { data: updatedCredits, error } = await supabase.rpc('consume_user_credits', {
-        p_user_id: user.id,
-        p_amount: creditsRequired,
-        p_feature_type: featureType,
-        p_description: `使用 ${featureType} 功能消费积分`
+      // 通过后台API消费积分
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/user-permissions/${user.id}/consume-credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feature: featureType,
+          resourceData,
+          creditsToConsume: creditsRequired
+        })
       });
 
-      if (error) {
-        console.error('积分消费失败:', error);
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
         return {
           success: false,
           reason: 'credit_consumption_failed',
-          message: '积分消费失败，请稍后重试'
+          message: result.error || '积分消费失败'
         };
       }
-
-      // 记录功能使用
-      await this.recordFeatureUsage(user.id, featureType, creditsRequired, resourceData);
 
       // 清除权限缓存
       this.permissionsCache.delete(user.id);
 
       return {
         success: true,
-        credits_consumed: creditsRequired,
-        remaining_credits: updatedCredits?.available_credits || 0
+        credits_consumed: result.data.creditsConsumed,
+        remaining_credits: result.data.creditsRemaining
       };
     } catch (error) {
       console.error('积分消费异常:', error);
@@ -468,8 +419,26 @@ class PermissionService {
   /**
    * 刷新用户权限缓存
    */
-  refreshUserPermissions(userId: string): void {
+  async refreshUserPermissions(userId: string): Promise<void> {
+    try {
+      // 清除本地缓存
     this.permissionsCache.delete(userId);
+      
+      // 通过后台API刷新权限缓存
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/user-permissions/${userId}/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        console.warn('刷新后台权限缓存失败:', response.status);
+      }
+    } catch (error) {
+      console.warn('刷新权限缓存失败:', error);
+    }
   }
 
   /**

@@ -8,6 +8,7 @@ import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { imageGenerationService } from './services/imageService.js';
 import paymentsRouter from './routes/payments-simple.mjs';
+import userPermissionsRouter from './routes/user-permissions.mjs';
 
 dotenv.config();
 
@@ -41,6 +42,9 @@ const upload = multer({
 
 // 支付路由
 app.use('/api/payments', paymentsRouter);
+
+// 用户权限路由
+app.use('/api/user-permissions', userPermissionsRouter);
 
 // 健康检查端点
 app.get('/health', (req, res) => {
