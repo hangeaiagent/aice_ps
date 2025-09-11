@@ -9,6 +9,7 @@ import { createAlbumPage } from '../lib/albumUtils';
 import PolaroidCard from './PolaroidCard';
 import { UploadIcon, DownloadIcon } from './icons';
 import Spinner from './Spinner';
+import { useAuth } from '../contexts/AuthContext';
 
 type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 type ImageStatus = 'pending' | 'done' | 'error';
@@ -31,6 +32,7 @@ const POSITIONS = [
 ];
 
 const PastForwardPage: React.FC = () => {
+    const { isAuthenticated } = useAuth();
     const [appState, setAppState] = useState<AppState>('idle');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [generatedImages, setGeneratedImages] = useState<Record<string, GeneratedImage>>({});
@@ -78,6 +80,13 @@ const PastForwardPage: React.FC = () => {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // 检查登录状态
+        if (!isAuthenticated) {
+            // 触发登录模态框
+            const event = new CustomEvent('openAuthModal');
+            window.dispatchEvent(event);
+            return;
+        }
         if (e.target.files?.[0]) {
             handleImageUpload(e.target.files[0]);
         }
@@ -191,7 +200,16 @@ const PastForwardPage: React.FC = () => {
                     <div 
                         className="w-64 mt-8 bg-[#fdf5e6] rounded-lg shadow-2xl p-4 flex flex-col justify-center cursor-pointer group transition-all duration-300 ease-in-out"
                         style={{ height: polaroidFrameHeight ?? '20rem' }}
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => {
+                            // 检查登录状态
+                            if (!isAuthenticated) {
+                                // 触发登录模态框
+                                const event = new CustomEvent('openAuthModal');
+                                window.dispatchEvent(event);
+                                return;
+                            }
+                            fileInputRef.current?.click();
+                        }}
                     >
                         {uploadedImage ? (
                              <>
@@ -216,7 +234,16 @@ const PastForwardPage: React.FC = () => {
 
                     {appState === 'image-uploaded' && (
                         <div className="flex gap-4 mt-4">
-                            <button onClick={() => fileInputRef.current?.click()} className="text-gray-300 hover:text-white underline">Change Photo</button>
+                            <button onClick={() => {
+                                // 检查登录状态
+                                if (!isAuthenticated) {
+                                    // 触发登录模态框
+                                    const event = new CustomEvent('openAuthModal');
+                                    window.dispatchEvent(event);
+                                    return;
+                                }
+                                fileInputRef.current?.click();
+                            }} className="text-gray-300 hover:text-white underline">Change Photo</button>
                             <button onClick={handleGenerateClick} className="px-8 py-3 bg-[#fecb2e] text-black font-['Permanent_Marker'] text-xl rounded-full shadow-lg hover:scale-105 transition-transform">
                                 GENERATE
                             </button>

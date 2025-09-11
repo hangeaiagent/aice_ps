@@ -5,6 +5,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { UploadIcon, XMarkIcon } from './icons';
+import { useAuth } from '../contexts/AuthContext';
 
 interface FusionPanelProps {
   onApplyFusion: (sourceImages: File[], prompt: string) => void;
@@ -16,6 +17,7 @@ const MAX_FILE_SIZE_MB = 15;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onError }) => {
+  const { isAuthenticated } = useAuth();
   const [sourceImageFile1, setSourceImageFile1] = useState<File | null>(null);
   const [sourceImageFile2, setSourceImageFile2] = useState<File | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -51,6 +53,14 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
     }, [file]);
 
     const handleFileSelect = (files: FileList | null) => {
+        // 检查登录状态
+        if (!isAuthenticated) {
+            // 触发登录模态框
+            const event = new CustomEvent('openAuthModal');
+            window.dispatchEvent(event);
+            return;
+        }
+        
         if (files && files.length > 0) {
             const selectedFile = files[0];
             if (selectedFile.size > MAX_FILE_SIZE_BYTES) {

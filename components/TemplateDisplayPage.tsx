@@ -222,7 +222,7 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
             onClick={() => onUseInEditor(template)}
             className="w-full sm:w-auto px-8 py-3 bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner"
           >
-            复制提示词并上传图片来改图
+            使用此模板编辑图片
           </button>
         </div>
       </div>

@@ -699,7 +699,17 @@ const App: React.FC = () => {
     setEditorInitialState(null);
   }, []);
 
-  const handleUseTemplateInEditor = (template: Template) => {
+  const handleUseTemplateInEditor = async (template: Template) => {
+    // 复制提示词到剪贴板
+    try {
+      await navigator.clipboard.writeText(template.prompt);
+      setNotification('提示词已复制到剪贴板！请上传图片开始编辑。');
+    } catch (error) {
+      console.error('复制提示词失败:', error);
+      setNotification('提示词复制失败，但已切换到编辑器。');
+    }
+    
+    // 设置编辑器初始状态并切换视图
     setEditorInitialState({ baseImageUrl: template.baseUrl, prompt: template.prompt });
     setSelectedTemplate(null);
     setActiveView('editor');
@@ -719,8 +729,6 @@ const App: React.FC = () => {
   }, [notification]);
   
   const MainContent: React.FC = () => {
-    console.log('MainContent rendering, activeView:', activeView);
-    
     switch (activeView) {
         case 'past-forward': return <PastForwardPage />;
         case 'beatsync': return <BeatSyncPage />;

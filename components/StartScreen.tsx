@@ -19,47 +19,49 @@ const TemplateButton: React.FC<{
   template: Template;
   onSelect: (template: Template) => void;
 }> = ({ template, onSelect }) => {
-  const [iconSrc, setIconSrc] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    const fetchImage = async () => {
-      try {
-        const response = await fetch(template.iconUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch template icon: ${template.iconUrl}`);
-        }
-        const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
-        setIconSrc(objectUrl);
-      } catch (error) {
-        console.error(error);
-        // Could set a placeholder error image source here
-      }
-    };
+  const handleImageLoad = () => {
+    setIsLoaded(true);
+    setHasError(false);
+  };
 
-    fetchImage();
-
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [template.iconUrl]);
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setHasError(true);
+    setIsLoaded(false);
+    console.error(`Failed to load template icon: ${template.iconUrl}`, e);
+    console.error('Image error details:', {
+      src: e.currentTarget.src,
+      naturalWidth: e.currentTarget.naturalWidth,
+      naturalHeight: e.currentTarget.naturalHeight
+    });
+  };
 
   return (
     <button
       onClick={() => onSelect(template)}
-      className="aspect-square bg-gray-900/50 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 hover:ring-2 ring-blue-400 focus:outline-none focus:ring-2 ring-blue-400"
+      className="aspect-square bg-gray-900/50 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 hover:ring-2 ring-blue-400 focus:outline-none focus:ring-2 ring-blue-400 relative"
       title={template.name}
     >
-      {iconSrc ? (
-        <img src={iconSrc} alt={template.name} className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
+      {!isLoaded && !hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
           <Spinner className="w-6 h-6 text-gray-500" />
         </div>
       )}
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 text-gray-500">
+          <span className="text-xs">加载失败</span>
+        </div>
+      )}
+      <img 
+        src={template.iconUrl} 
+        alt={template.name} 
+        className="w-full h-full object-cover"
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+        style={{ display: hasError ? 'none' : 'block' }}
+      />
     </button>
   );
 };
@@ -123,12 +125,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
   }, [onFileSelect]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 检查登录状态
+    if (!isAuthenticated) {
+      // 触发登录模态框
+      const event = new CustomEvent('openAuthModal');
+      window.dispatchEvent(event);
+      return;
+    }
     onFileSelect(e.target.files);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
+    // 检查登录状态
+    if (!isAuthenticated) {
+      // 触发登录模态框
+      const event = new CustomEvent('openAuthModal');
+      window.dispatchEvent(event);
+      return;
+    }
     onFileSelect(e.dataTransfer.files);
   };
 
@@ -175,8 +191,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     { name: '肖像', value: '3:4' },
   ];
 
-  console.log('StartScreen rendering with templates:', templates.length);
-  
   return (
     <div className="flex flex-col items-center gap-6 animate-fade-in w-full max-w-5xl mx-auto text-center p-4 sm:p-8">
       <h1 className="text-5xl font-extrabold tracking-tight text-gray-100 sm:text-6xl md:text-7xl">
@@ -295,7 +309,16 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
             <div className="w-full">
               <div className="flex flex-col sm:flex-row gap-2 w-full justify-center">
                   <button
-                      onClick={() => document.getElementById('image-upload-start')?.click()}
+                      onClick={() => {
+                        // 检查登录状态
+                        if (!isAuthenticated) {
+                          // 触发登录模态框
+                          const event = new CustomEvent('openAuthModal');
+                          window.dispatchEvent(event);
+                          return;
+                        }
+                        document.getElementById('image-upload-start')?.click();
+                      }}
                       className="flex-grow relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold text-white bg-blue-600 rounded-full cursor-pointer group-hover:bg-blue-500 transition-colors"
                   >
                       <UploadIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:rotate-[360deg] group-hover:scale-110" />

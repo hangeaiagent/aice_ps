@@ -71,13 +71,9 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSetting
                   </h1>
                 </button>
 
-                <div className="h-6 w-px bg-gray-600"></div>
+                 
                 
-                <a href="https://nb.kuai.host/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10">
-                  <h1 className="text-xl font-bold tracking-tight">
-                    【自部署版本APP】国内可用
-                  </h1>
-                </a>
+                
 
             </div>
             <div className="flex items-center gap-2">
@@ -97,16 +93,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSetting
               >
                 <CogIcon className="w-6 h-6" />
               </button>
-              <a
-                href="https://github.com/aigem/aice_ps"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 text-gray-400 rounded-full hover:bg-white/10 hover:text-white transition-colors"
-                aria-label="GitHub Repository"
-                title="GitHub Repository"
-              >
-                <GitHubIcon className="w-6 h-6" />
-              </a>
+              
               
               {/* 认证状态显示 */}
               <div className="ml-2 pl-2 border-l border-gray-600">

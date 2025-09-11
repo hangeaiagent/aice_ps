@@ -291,9 +291,7 @@ COMMENT ON COLUMN pay_refunds.created_at IS '创建时间';
 -- 9. 索引创建
 -- =================================
 
--- 用户相关索引
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_created_at ON users(created_at);
+ 
 
 -- 订阅相关索引
 CREATE INDEX idx_pay_user_subscriptions_user_id ON pay_user_subscriptions(user_id);

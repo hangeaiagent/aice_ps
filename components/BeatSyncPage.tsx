@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { hybridImageService } from '../services/hybridImageService';
 import { UploadIcon, DownloadIcon, ChevronDownIcon, PlayIcon, PauseIcon, RefreshIcon } from './icons';
 import Spinner from './Spinner';
+import { useAuth } from '../contexts/AuthContext';
 
 type AppState = 'idle' | 'generating-images' | 'generating-video' | 'results-shown' | 'error';
 type ImageStatus = 'pending' | 'done' | 'error';
@@ -72,6 +73,7 @@ const generateWithRetry = async (file: File, prompt: string, retries = 1): Promi
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
 const BeatSyncPage: React.FC = () => {
+    const { isAuthenticated } = useAuth();
     const [appState, setAppState] = useState<AppState>('idle');
     const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
     const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
@@ -135,6 +137,14 @@ const BeatSyncPage: React.FC = () => {
     }, [notification]);
 
     const handleFileChange = (files: FileList | null) => {
+        // 检查登录状态
+        if (!isAuthenticated) {
+            // 触发登录模态框
+            const event = new CustomEvent('openAuthModal');
+            window.dispatchEvent(event);
+            return;
+        }
+        
         const file = files?.[0];
         if (!file) return;
 
@@ -549,7 +559,16 @@ const BeatSyncPage: React.FC = () => {
                         {/* Step 1 */}
                         <div>
                             <h3 className="text-xl font-bold text-white mb-3">1. 上传您的图片</h3>
-                            <div className="h-48 w-full border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center bg-gray-900/50 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => document.getElementById('beatsync-upload')?.click()}>
+                            <div className="h-48 w-full border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center bg-gray-900/50 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => {
+                                // 检查登录状态
+                                if (!isAuthenticated) {
+                                    // 触发登录模态框
+                                    const event = new CustomEvent('openAuthModal');
+                                    window.dispatchEvent(event);
+                                    return;
+                                }
+                                document.getElementById('beatsync-upload')?.click();
+                            }}>
                                 {uploadedImagePreview ? (
                                     <img src={uploadedImagePreview} alt="upload preview" className="max-h-full max-w-full object-contain"/>
                                 ) : (

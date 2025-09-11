@@ -14,33 +14,19 @@ const TemplateCard: React.FC<{
   template: Template;
   onSelect: (template: Template) => void;
 }> = ({ template, onSelect }) => {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    const fetchImage = async () => {
-      try {
-        const response = await fetch(template.iconUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch template image: ${template.iconUrl}`);
-        }
-        const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
-        setImageSrc(objectUrl);
-      } catch (error) {
-        console.error(error);
-        // Could set a placeholder error image source here
-      }
-    };
+  const handleImageLoad = () => {
+    setIsLoaded(true);
+    setHasError(false);
+  };
 
-    fetchImage();
-
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [template.iconUrl]);
+  const handleImageError = () => {
+    setHasError(true);
+    setIsLoaded(false);
+    console.error(`Failed to load template image: ${template.iconUrl}`);
+  };
 
   return (
     <div
@@ -48,12 +34,22 @@ const TemplateCard: React.FC<{
       onClick={() => onSelect(template)}
     >
       <div className="cursor-pointer">
-        <div className="aspect-video bg-gray-900 overflow-hidden flex items-center justify-center">
-          {imageSrc ? (
-            <img src={imageSrc} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          ) : (
+        <div className="aspect-video bg-gray-900 overflow-hidden flex items-center justify-center relative">
+          {!isLoaded && !hasError && (
             <Spinner className="w-8 h-8 text-gray-500" />
           )}
+          {hasError && (
+            <div className="text-gray-500 text-center">
+              <span className="text-sm">加载失败</span>
+            </div>
+          )}
+          <img 
+            src={template.iconUrl} 
+            alt={template.name} 
+            className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
         </div>
         <div className="p-4">
           <h3 className="text-xl font-bold text-white truncate">{template.name}</h3>
