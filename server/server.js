@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { imageGenerationService } from './services/imageService.js';
-import paymentsRouter from './routes/payments.mjs';
+// import paymentsRouter from './routes/payments.mjs';
 
 dotenv.config();
 
@@ -39,8 +39,8 @@ const upload = multer({
   }
 });
 
-// 支付路由
-app.use('/api/payments', paymentsRouter);
+// 支付路由 - 暂时禁用以解决启动问题
+// app.use('/api/payments', paymentsRouter);
 
 // 健康检查端点
 app.get('/health', (req, res) => {
