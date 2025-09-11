@@ -71,6 +71,17 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSetting
                   </h1>
                 </button>
 
+                <div className="h-6 w-px bg-gray-600"></div>
+
+                <button onClick={() => onViewChange('pricing')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'pricing' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                  <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                  <h1 className="text-xl font-bold tracking-tight">
+                    价格套餐
+                  </h1>
+                </button>
+
                  
                 
                 

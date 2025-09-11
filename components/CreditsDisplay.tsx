@@ -177,7 +177,10 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({
                 付费套餐提供充足的月度积分额度，让您畅享所有 AI 功能
               </p>
               <button
-                onClick={() => window.open('/pricing', '_blank')}
+                onClick={() => {
+                  const event = new CustomEvent('navigateToPricing');
+                  window.dispatchEvent(event);
+                }}
                 className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
               >
                 查看套餐
@@ -189,14 +192,20 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({
           {!isFreePlan && (
             <div className="flex gap-2">
               <button
-                onClick={() => window.open('/pricing', '_blank')}
+                onClick={() => {
+                  const event = new CustomEvent('navigateToPricing');
+                  window.dispatchEvent(event);
+                }}
                 className="flex-1 py-2 px-3 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium rounded-md transition-colors"
               >
                 管理套餐
               </button>
               {isLowCredits && (
                 <button
-                  onClick={() => window.open('/pricing', '_blank')}
+                  onClick={() => {
+                    const event = new CustomEvent('navigateToPricing');
+                    window.dispatchEvent(event);
+                  }}
                   className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
                 >
                   购买积分

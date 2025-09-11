@@ -111,7 +111,8 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
             <button
               onClick={() => {
                 // 跳转到定价页面
-                window.open('/pricing', '_blank');
+                const event = new CustomEvent('navigateToPricing');
+                window.dispatchEvent(event);
               }}
               className="flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all transform hover:scale-105"
             >

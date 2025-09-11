@@ -160,7 +160,9 @@ const UserMenu: React.FC = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  window.open('/pricing', '_blank');
+                  // 触发导航到价格页面
+                  const event = new CustomEvent('navigateToPricing');
+                  window.dispatchEvent(event);
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
               >

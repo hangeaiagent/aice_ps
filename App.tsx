@@ -25,6 +25,7 @@ import PastForwardPage from './components/PastForwardPage';
 import BeatSyncPage from './components/BeatSyncPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
 import TemplateDisplayPage from './components/TemplateDisplayPage';
+import PricingPage from './components/PricingPage';
 
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -108,7 +109,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'pricing';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -714,6 +715,18 @@ const App: React.FC = () => {
     setSelectedTemplate(null);
     setActiveView('editor');
   };
+
+  // 监听导航到价格页面的事件
+  useEffect(() => {
+    const handleNavigateToPricing = () => {
+      setActiveView('pricing');
+    };
+
+    window.addEventListener('navigateToPricing', handleNavigateToPricing);
+    return () => {
+      window.removeEventListener('navigateToPricing', handleNavigateToPricing);
+    };
+  }, []);
   
   // Dummy handlers to satisfy the EditorView props, as its internal state is now self-contained.
   const handleFileSelect = () => {};
@@ -744,6 +757,7 @@ const App: React.FC = () => {
                     onUseInEditor={handleUseTemplateInEditor}
                 />
             ) : null;
+        case 'pricing': return <PricingPage />;
         case 'editor':
         default:
           return <EditorView 
