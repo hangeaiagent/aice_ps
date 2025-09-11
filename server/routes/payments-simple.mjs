@@ -1,220 +1,126 @@
 import express from 'express';
-import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
-// 加载环境变量
+// 确保环境变量被加载
 dotenv.config();
 
 const router = express.Router();
 
-// PayPal配置
+// 日志函数
+function log(level, message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] [PAYMENTS] [${level.toUpperCase()}] ${message}`;
+  console.log(logMessage);
+  if (data) {
+    console.log(`[${timestamp}] [PAYMENTS] [DATA]`, JSON.stringify(data, null, 2));
+  }
+}
+
+const supabaseUrl = process.env.SUPABASE_URL || 'https://uobwbhvwrciaxloqdizc.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvYndiaHZ3cmNpYXhsb3FkaXpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5MzM5NjQsImV4cCI6MjA1MDUwOTk2NH0.xWGgKJJmjfUUgEjNPcqRJdLQYLlgYDKJgBNxJfJGUJI';
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase configuration:', { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
+  throw new Error('Supabase configuration is required');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// PayPal 配置
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 const PAYPAL_API_URL = process.env.PAYPAL_API_URL || 'https://api-m.paypal.com';
 
-console.log('PayPal配置加载:', {
-  clientId: PAYPAL_CLIENT_ID ? '已配置' : '未配置',
-  clientSecret: PAYPAL_CLIENT_SECRET ? '已配置' : '未配置',
-  apiUrl: PAYPAL_API_URL
-});
+if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+  console.error('Missing PayPal configuration');
+}
 
-// 获取PayPal访问令牌
+// 获取 PayPal 访问令牌
 async function getPayPalAccessToken() {
   try {
     const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
     
-    const response = await axios.post(`${PAYPAL_API_URL}/v1/oauth2/token`, 
-      'grant_type=client_credentials',
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
-    );
-    
-    return response.data.access_token;
+    const response = await fetch(`${PAYPAL_API_URL}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials'
+    });
+
+    if (!response.ok) {
+      throw new Error(`PayPal token request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
   } catch (error) {
-    console.error('获取PayPal访问令牌失败:', error.response?.data || error.message);
-    throw new Error('PayPal认证失败');
+    console.error('获取PayPal访问令牌失败:', error);
+    throw error;
   }
 }
 
-// 创建PayPal订单（一次性支付）
-router.post('/create-order', async (req, res) => {
-  try {
-    const { plan_id, plan_code, amount, currency = 'USD' } = req.body;
-
-    console.log('创建订单请求:', { plan_id, plan_code, amount, currency });
-
-    // 获取PayPal访问令牌
-    const accessToken = await getPayPalAccessToken();
-
-    // 创建PayPal订单
-    const paypalOrderData = {
-      intent: 'CAPTURE',
-      purchase_units: [{
-        reference_id: `order_${Date.now()}`,
-        amount: {
-          currency_code: currency,
-          value: amount.toString()
-        },
-        description: `${plan_code} - 套餐购买`
-      }],
-      application_context: {
-        brand_name: 'Nano Banana AI',
-        landing_page: 'BILLING',
-        user_action: 'PAY_NOW',
-        return_url: `${process.env.FRONTEND_URL || 'https://nanobanana.gitagent.io'}/payment/success`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://nanobanana.gitagent.io'}/payment/cancel`
-      }
-    };
-
-    const paypalResponse = await axios.post(`${PAYPAL_API_URL}/v2/checkout/orders`, paypalOrderData, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log('PayPal订单创建成功:', paypalResponse.data.id);
-
-    res.json({
-      paypal_order_id: paypalResponse.data.id,
-      status: 'created'
-    });
-
-  } catch (error) {
-    console.error('创建PayPal订单失败:', error.response?.data || error.message);
-    res.status(500).json({ error: '创建订单失败', detail: error.message });
-  }
-});
-
-// 捕获PayPal支付
-router.post('/capture-order', async (req, res) => {
-  try {
-    const { order_id, plan_id } = req.body;
-
-    console.log('捕获支付请求:', { order_id, plan_id });
-
-    // 获取PayPal访问令牌
-    const accessToken = await getPayPalAccessToken();
-
-    // 捕获PayPal支付
-    const captureResponse = await axios.post(
-      `${PAYPAL_API_URL}/v2/checkout/orders/${order_id}/capture`,
-      {},
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const captureData = captureResponse.data;
-    const captureStatus = captureData.status;
-
-    console.log('PayPal支付捕获结果:', captureStatus);
-
-    if (captureStatus === 'COMPLETED') {
-      res.json({
-        status: 'success',
-        message: '支付成功',
-        capture_id: captureData.id
-      });
-    } else {
-      res.status(400).json({ error: '支付未完成', status: captureStatus });
-    }
-
-  } catch (error) {
-    console.error('捕获PayPal支付失败:', error.response?.data || error.message);
-    res.status(500).json({ error: '支付处理失败', detail: error.message });
-  }
-});
-
-// 创建PayPal订阅
+// 创建订阅
 router.post('/create-subscription', async (req, res) => {
   try {
-    const { plan_id, plan_code, amount, currency = 'USD' } = req.body;
+    log('INFO', '收到创建订阅请求', { body: req.body, headers: req.headers });
+    
+    const { planId, userId } = req.body;
 
-    console.log('创建订阅请求:', { plan_id, plan_code, amount, currency });
+    if (!planId || !userId) {
+      log('ERROR', '缺少必要参数', { planId, userId });
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数: planId 和 userId 是必需的'
+      });
+    }
 
-    // 获取PayPal访问令牌
+    log('INFO', '开始处理订阅创建', { planId, userId });
+
+    // 获取订阅计划信息
+    log('INFO', '查询订阅计划', { planId });
+    const { data: plan, error: planError } = await supabase
+      .from('pay_subscription_plans')
+      .select('*')
+      .eq('id', planId)
+      .single();
+
+    if (planError || !plan) {
+      log('ERROR', '订阅计划查询失败', { planError, planId });
+      return res.status(404).json({
+        success: false,
+        error: '订阅计划不存在'
+      });
+    }
+
+    log('INFO', '订阅计划查询成功', { plan });
+
+    // 获取 PayPal 访问令牌
+    log('INFO', '获取PayPal访问令牌');
     const accessToken = await getPayPalAccessToken();
+    log('INFO', 'PayPal访问令牌获取成功');
 
-    // 首先创建订阅产品
-    const productData = {
-      name: `${plan_code} 订阅服务`,
-      description: `${plan_code} 每月订阅服务`,
-      type: 'SERVICE',
-      category: 'SOFTWARE'
-    };
-
-    const productResponse = await axios.post(`${PAYPAL_API_URL}/v1/catalogs/products`, productData, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const productId = productResponse.data.id;
-    console.log('PayPal产品创建成功:', productId);
-
-    // 创建订阅计划
-    const planData = {
-      product_id: productId,
-      name: `${plan_code} 月度订阅`,
-      description: `${plan_code} 每月订阅服务`,
-      billing_cycles: [{
-        frequency: {
-          interval_unit: 'MONTH',
-          interval_count: 1
-        },
-        tenure_type: 'REGULAR',
-        sequence: 1,
-        total_cycles: 0, // 0 表示无限循环
-        pricing_scheme: {
-          fixed_price: {
-            value: amount.toString(),
-            currency_code: currency
-          }
-        }
-      }],
-      payment_preferences: {
-        auto_bill_outstanding: true,
-        setup_fee: {
-          value: '0',
-          currency_code: currency
-        },
-        setup_fee_failure_action: 'CONTINUE',
-        payment_failure_threshold: 3
-      }
-    };
-
-    const subscriptionPlanResponse = await axios.post(`${PAYPAL_API_URL}/v1/billing/plans`, planData, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const subscriptionPlanId = subscriptionPlanResponse.data.id;
-    console.log('PayPal订阅计划创建成功:', subscriptionPlanId);
-
-    // 创建订阅
+    // 创建 PayPal 订阅
     const subscriptionData = {
-      plan_id: subscriptionPlanId,
+      plan_id: plan.paypal_plan_id || 'P-5ML4271244454362WXNWU5NQ', // 默认计划ID
       start_time: new Date(Date.now() + 60000).toISOString(), // 1分钟后开始
+      quantity: '1',
+      shipping_amount: {
+        currency_code: 'USD',
+        value: '0.00'
+      },
       subscriber: {
         name: {
           given_name: 'User',
-          surname: 'Subscriber'
-        }
+          surname: 'Name'
+        },
+        email_address: 'user@example.com'
       },
       application_context: {
-        brand_name: 'Nano Banana AI',
-        locale: 'zh-CN',
+        brand_name: 'AicePS',
+        locale: 'en-US',
         shipping_preference: 'NO_SHIPPING',
         user_action: 'SUBSCRIBE_NOW',
         payment_method: {
@@ -226,70 +132,184 @@ router.post('/create-subscription', async (req, res) => {
       }
     };
 
-    const subscriptionResponse = await axios.post(`${PAYPAL_API_URL}/v1/billing/subscriptions`, subscriptionData, {
+    log('INFO', '发送PayPal订阅创建请求', { 
+      url: `${PAYPAL_API_URL}/v1/billing/subscriptions`,
+      subscriptionData 
+    });
+
+    const paypalResponse = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
+        'Accept': 'application/json',
+        'PayPal-Request-Id': `subscription-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      },
+      body: JSON.stringify(subscriptionData)
     });
 
-    console.log('PayPal订阅创建成功:', subscriptionResponse.data.id);
-
-    res.json({
-      paypal_subscription_id: subscriptionResponse.data.id,
-      status: 'created'
+    log('INFO', 'PayPal API响应状态', { 
+      status: paypalResponse.status,
+      statusText: paypalResponse.statusText,
+      headers: Object.fromEntries(paypalResponse.headers.entries())
     });
 
-  } catch (error) {
-    console.error('创建PayPal订阅失败:', error.response?.data || error.message);
-    res.status(500).json({ error: '创建订阅失败', detail: error.message });
-  }
-});
-
-// 确认订阅
-router.post('/confirm-subscription', async (req, res) => {
-  try {
-    const { subscription_id, plan_id } = req.body;
-
-    console.log('确认订阅请求:', { subscription_id, plan_id });
-
-    // 获取PayPal访问令牌
-    const accessToken = await getPayPalAccessToken();
-
-    // 获取PayPal订阅详情
-    const subscriptionResponse = await axios.get(`${PAYPAL_API_URL}/v1/billing/subscriptions/${subscription_id}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const subscriptionData = subscriptionResponse.data;
-    console.log('PayPal订阅状态:', subscriptionData.status);
-
-    if (subscriptionData.status === 'ACTIVE') {
-      res.json({
-        status: 'success',
-        message: '订阅激活成功',
-        subscription_id: subscription_id
+    if (!paypalResponse.ok) {
+      const errorText = await paypalResponse.text();
+      log('ERROR', 'PayPal订阅创建失败', { 
+        status: paypalResponse.status,
+        statusText: paypalResponse.statusText,
+        errorText,
+        subscriptionData
       });
-    } else {
-      res.status(400).json({ error: '订阅未激活', status: subscriptionData.status });
+      return res.status(paypalResponse.status).json({
+        success: false,
+        error: `PayPal API错误: ${paypalResponse.status}`,
+        details: errorText
+      });
     }
 
+    const subscription = await paypalResponse.json();
+
+    // 保存订阅信息到数据库
+    const { error: dbError } = await supabase
+      .from('pay_user_subscriptions')
+      .insert({
+        user_id: userId,
+        plan_id: planId,
+        paypal_subscription_id: subscription.id,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      });
+
+    if (dbError) {
+      console.error('保存订阅信息失败:', dbError);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        subscriptionId: subscription.id,
+        approvalUrl: subscription.links.find(link => link.rel === 'approve')?.href
+      }
+    });
+
   } catch (error) {
-    console.error('确认PayPal订阅失败:', error.response?.data || error.message);
-    res.status(500).json({ error: '订阅确认失败', detail: error.message });
+    log('ERROR', '创建订阅异常', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// 健康检查
-router.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Payment API is running',
-    paypal_configured: !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET)
-  });
+// 获取订阅计划
+router.get('/plans', async (req, res) => {
+  try {
+    const { data: plans, error } = await supabase
+      .from('pay_subscription_plans')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      data: plans
+    });
+  } catch (error) {
+    console.error('获取订阅计划失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
+
+// PayPal Webhook 处理
+router.post('/webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    
+    console.log('PayPal Webhook received:', event.event_type);
+
+    // 处理不同的事件类型
+    switch (event.event_type) {
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+        // 订阅激活
+        await handleSubscriptionActivated(event.resource);
+        break;
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+        // 订阅取消
+        await handleSubscriptionCancelled(event.resource);
+        break;
+      case 'PAYMENT.SALE.COMPLETED':
+        // 支付完成
+        await handlePaymentCompleted(event.resource);
+        break;
+      default:
+        console.log('未处理的事件类型:', event.event_type);
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Webhook处理失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 处理订阅激活
+async function handleSubscriptionActivated(resource) {
+  try {
+    const { error } = await supabase
+      .from('pay_user_subscriptions')
+      .update({
+        status: 'active',
+        activated_at: new Date().toISOString()
+      })
+      .eq('paypal_subscription_id', resource.id);
+
+    if (error) {
+      console.error('更新订阅状态失败:', error);
+    }
+  } catch (error) {
+    console.error('处理订阅激活失败:', error);
+  }
+}
+
+// 处理订阅取消
+async function handleSubscriptionCancelled(resource) {
+  try {
+    const { error } = await supabase
+      .from('pay_user_subscriptions')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      })
+      .eq('paypal_subscription_id', resource.id);
+
+    if (error) {
+      console.error('更新订阅状态失败:', error);
+    }
+  } catch (error) {
+    console.error('处理订阅取消失败:', error);
+  }
+}
+
+// 处理支付完成
+async function handlePaymentCompleted(resource) {
+  try {
+    // 这里可以添加积分充值逻辑
+    console.log('支付完成:', resource);
+  } catch (error) {
+    console.error('处理支付完成失败:', error);
+  }
+}
 
 export default router;

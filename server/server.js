@@ -15,6 +15,16 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 日志函数
+function log(level, message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+  console.log(logMessage);
+  if (data) {
+    console.log(`[${timestamp}] [DATA]`, JSON.stringify(data, null, 2));
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -217,7 +227,13 @@ app.use((error, req, res, next) => {
     }
   }
   
-  console.error('服务器错误:', error);
+  log('ERROR', '服务器错误', {
+    message: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+    body: req.body
+  });
   res.status(500).json({ 
     error: '服务器内部错误', 
     message: error.message 
@@ -230,7 +246,9 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`AicePS 服务器运行在端口 ${PORT}`);
-  console.log(`健康检查: http://localhost:${PORT}/health`);
-  console.log(`图片访问: http://localhost:${PORT}/images/`);
+  log('INFO', 'AicePS 服务器启动成功');
+  log('INFO', `服务器运行在端口 ${PORT}`);
+  log('INFO', `健康检查: http://localhost:${PORT}/health`);
+  log('INFO', `图片访问: http://localhost:${PORT}/images/`);
+  log('INFO', `日志文件: /home/ec2-user/nanobanana/server/logs/server-${new Date().toISOString().split('T')[0]}.log`);
 });
