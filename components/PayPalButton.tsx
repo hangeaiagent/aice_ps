@@ -49,7 +49,13 @@ const PayPalButton: React.FC<PayPalButtonProps> = ({
       }
 
       const script = document.createElement('script');
-      script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.VITE_PAYPAL_CLIENT_ID || 'test'}&vault=true&intent=${isSubscription ? 'subscription' : 'capture'}&currency=${currency}&locale=zh_CN`;
+      const clientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID;
+      if (!clientId) {
+        console.error('PayPal Client ID not configured');
+        onError?.({ message: 'PayPal配置错误：缺少Client ID' });
+        return;
+      }
+      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&vault=true&intent=${isSubscription ? 'subscription' : 'capture'}&currency=${currency}&locale=zh_CN`;
       script.async = true;
       script.onload = () => setSdkReady(true);
       script.onerror = () => {
