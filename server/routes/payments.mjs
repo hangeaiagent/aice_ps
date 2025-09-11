@@ -1,6 +1,10 @@
 import express from 'express';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+// 加载环境变量
+dotenv.config();
 
 const router = express.Router();
 
