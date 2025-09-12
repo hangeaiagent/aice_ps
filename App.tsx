@@ -26,6 +26,8 @@ import BeatSyncPage from './components/BeatSyncPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
 import TemplateDisplayPage from './components/TemplateDisplayPage';
 import PricingPage from './components/PricingPage';
+import PaymentSuccessPage from './components/PaymentSuccessPage';
+import PaymentCancelPage from './components/PaymentCancelPage';
 
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -109,7 +111,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'pricing';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'pricing' | 'payment-success' | 'payment-cancel';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -727,6 +729,22 @@ const App: React.FC = () => {
       window.removeEventListener('navigateToPricing', handleNavigateToPricing);
     };
   }, []);
+
+  // 检测URL路径，处理支付回调
+  useEffect(() => {
+    const path = window.location.pathname;
+    const search = window.location.search;
+    
+    if (path === '/payment/success') {
+      setActiveView('payment-success');
+      // 清理URL，但保留查询参数用于显示订阅信息
+      window.history.replaceState({}, '', `/${search}`);
+    } else if (path === '/payment/cancel') {
+      setActiveView('payment-cancel');
+      // 清理URL
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
   
   // Dummy handlers to satisfy the EditorView props, as its internal state is now self-contained.
   const handleFileSelect = () => {};
@@ -758,6 +776,11 @@ const App: React.FC = () => {
                 />
             ) : null;
         case 'pricing': return <PricingPage />;
+        case 'payment-success': return <PaymentSuccessPage onNavigateHome={() => setCurrentView('editor')} />;
+        case 'payment-cancel': return <PaymentCancelPage 
+          onNavigateHome={() => setCurrentView('editor')} 
+          onNavigateToPricing={() => setCurrentView('pricing')} 
+        />;
         case 'editor':
         default:
           return <EditorView 

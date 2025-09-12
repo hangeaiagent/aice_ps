@@ -8,12 +8,17 @@ dotenv.config();
 const router = express.Router();
 
 // 日志函数
-function log(level, message, data = null) {
+function log(level, message, data = null, lineInfo = null) {
   const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [PAYMENTS] [${level.toUpperCase()}] ${message}`;
+  const stack = new Error().stack;
+  const caller = stack.split('\n')[2]; // 获取调用者信息
+  const lineMatch = caller.match(/payments-simple\.mjs:(\d+):\d+/);
+  const lineNumber = lineMatch ? lineMatch[1] : 'unknown';
+  
+  const logMessage = `[${timestamp}] [PAYMENTS] [${level.toUpperCase()}] [Line:${lineNumber}] ${message}`;
   console.log(logMessage);
   if (data) {
-    console.log(`[${timestamp}] [PAYMENTS] [DATA]`, JSON.stringify(data, null, 2));
+    console.log(`[${timestamp}] [PAYMENTS] [DATA] [Line:${lineNumber}]`, JSON.stringify(data, null, 2));
   }
 }
 
@@ -31,9 +36,21 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 const PAYPAL_API_URL = process.env.PAYPAL_API_URL || 'https://api-m.paypal.com';
+const PAYPAL_ENVIRONMENT = process.env.PAYPAL_ENVIRONMENT || 'sandbox';
+
+log('INFO', 'PayPal配置检查', {
+  hasClientId: !!PAYPAL_CLIENT_ID,
+  hasClientSecret: !!PAYPAL_CLIENT_SECRET,
+  apiUrl: PAYPAL_API_URL,
+  environment: PAYPAL_ENVIRONMENT,
+  clientIdLength: PAYPAL_CLIENT_ID?.length || 0
+});
 
 if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
-  console.error('Missing PayPal configuration');
+  log('ERROR', 'PayPal配置缺失', {
+    PAYPAL_CLIENT_ID: !!PAYPAL_CLIENT_ID,
+    PAYPAL_CLIENT_SECRET: !!PAYPAL_CLIENT_SECRET
+  });
 }
 
 // 获取 PayPal 访问令牌
@@ -67,13 +84,40 @@ router.post('/create-subscription', async (req, res) => {
   try {
     log('INFO', '收到创建订阅请求', { body: req.body, headers: req.headers });
     
-    const { planId, userId } = req.body;
+    // 兼容前端参数格式：plan_id 或 planId
+    const planId = req.body.planId || req.body.plan_id;
+    // 从用户认证信息中获取userId，或从请求体中获取
+    const userId = req.body.userId || req.body.user_id || req.headers.authorization?.split(' ')[1]; // 从token中提取
+    
+    log('INFO', '解析参数', { 
+      originalBody: req.body,
+      parsedPlanId: planId, 
+      parsedUserId: userId,
+      authHeader: req.headers.authorization 
+    });
 
-    if (!planId || !userId) {
-      log('ERROR', '缺少必要参数', { planId, userId });
+    if (!planId) {
+      log('ERROR', '缺少订阅计划ID', { 
+        planId, 
+        plan_id: req.body.plan_id,
+        availableFields: Object.keys(req.body)
+      });
       return res.status(400).json({
         success: false,
-        error: '缺少必要参数: planId 和 userId 是必需的'
+        error: '缺少必要参数: planId 或 plan_id 是必需的'
+      });
+    }
+
+    if (!userId) {
+      log('ERROR', '缺少用户ID', { 
+        userId, 
+        user_id: req.body.user_id,
+        authHeader: req.headers.authorization,
+        availableFields: Object.keys(req.body)
+      });
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数: userId 是必需的，请确保用户已登录'
       });
     }
 
@@ -102,9 +146,38 @@ router.post('/create-subscription', async (req, res) => {
     const accessToken = await getPayPalAccessToken();
     log('INFO', 'PayPal访问令牌获取成功');
 
+    // 获取用户信息 - 使用auth.users表
+    const { data: userInfo, error: userError } = await supabase
+      .from('auth.users')
+      .select('email, raw_user_meta_data')
+      .eq('id', userId)
+      .single();
+
+    if (userError) {
+      log('WARN', '无法获取用户信息，使用默认值', { 
+        error: userError.message,
+        userId,
+        code: userError.code 
+      });
+    }
+
+    log('INFO', '用户信息', { 
+      email: userInfo?.email,
+      hasMetadata: !!userInfo?.raw_user_meta_data 
+    });
+
+    // 检查计划是否有PayPal计划ID
+    if (!plan.paypal_plan_id) {
+      log('ERROR', '订阅计划缺少PayPal计划ID', { plan });
+      return res.status(400).json({
+        success: false,
+        error: '该订阅计划暂不支持PayPal支付，请联系客服'
+      });
+    }
+
     // 创建 PayPal 订阅
     const subscriptionData = {
-      plan_id: plan.paypal_plan_id || 'P-5ML4271244454362WXNWU5NQ', // 默认计划ID
+      plan_id: plan.paypal_plan_id, // 使用数据库中的真实计划ID
       start_time: new Date(Date.now() + 60000).toISOString(), // 1分钟后开始
       quantity: '1',
       shipping_amount: {
@@ -113,10 +186,15 @@ router.post('/create-subscription', async (req, res) => {
       },
       subscriber: {
         name: {
-          given_name: 'User',
-          surname: 'Name'
+          given_name: userInfo?.raw_user_meta_data?.full_name?.split(' ')[0] || 
+                      userInfo?.raw_user_meta_data?.first_name || 
+                      userInfo?.email?.split('@')[0] || 
+                      'User',
+          surname: userInfo?.raw_user_meta_data?.full_name?.split(' ')[1] || 
+                   userInfo?.raw_user_meta_data?.last_name || 
+                   'Customer'
         },
-        email_address: 'user@example.com'
+        email_address: userInfo?.email || 'user@example.com'
       },
       application_context: {
         brand_name: 'AicePS',

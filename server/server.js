@@ -18,10 +18,15 @@ const __dirname = path.dirname(__filename);
 // 日志函数
 function log(level, message, data = null) {
   const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+  const stack = new Error().stack;
+  const caller = stack.split('\n')[2]; // 获取调用者信息
+  const lineMatch = caller.match(/server\.js:(\d+):\d+/);
+  const lineNumber = lineMatch ? lineMatch[1] : 'unknown';
+  
+  const logMessage = `[${timestamp}] [SERVER] [${level.toUpperCase()}] [Line:${lineNumber}] ${message}`;
   console.log(logMessage);
   if (data) {
-    console.log(`[${timestamp}] [DATA]`, JSON.stringify(data, null, 2));
+    console.log(`[${timestamp}] [SERVER] [DATA] [Line:${lineNumber}]`, JSON.stringify(data, null, 2));
   }
 }
 

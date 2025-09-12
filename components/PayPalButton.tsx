@@ -96,7 +96,8 @@ const PayPalButton: React.FC<PayPalButtonProps> = ({
                   'Authorization': `Bearer ${user?.access_token}`
                 },
                 body: JSON.stringify({
-                  plan_id: planId,
+                  planId: planId,  // 使用正确的字段名
+                  userId: user?.id, // 添加用户ID
                   plan_code: planCode,
                   amount: amount,
                   currency: currency
