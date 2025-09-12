@@ -23,14 +23,24 @@ function log(level, message, data = null, lineInfo = null) {
 }
 
 const supabaseUrl = process.env.SUPABASE_URL || 'https://uobwbhvwrciaxloqdizc.supabase.co';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvYndiaHZ3cmNpYXhsb3FkaXpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5MzM5NjQsImV4cCI6MjA1MDUwOTk2NH0.xWGgKJJmjfUUgEjNPcqRJdLQYLlgYDKJgBNxJfJGUJI';
+// 使用 service_role 密钥以获得管理员权限
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase configuration:', { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
-  throw new Error('Supabase configuration is required');
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Missing Supabase configuration:', { 
+    supabaseUrl: !!supabaseUrl, 
+    supabaseServiceKey: !!supabaseServiceKey 
+  });
+  throw new Error('Supabase service_role key is required for admin operations');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 创建具有管理员权限的 Supabase 客户端
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // PayPal 配置
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
@@ -146,12 +156,8 @@ router.post('/create-subscription', async (req, res) => {
     const accessToken = await getPayPalAccessToken();
     log('INFO', 'PayPal访问令牌获取成功');
 
-    // 获取用户信息 - 使用auth.users表
-    const { data: userInfo, error: userError } = await supabase
-      .from('auth.users')
-      .select('email, raw_user_meta_data')
-      .eq('id', userId)
-      .single();
+    // 获取用户信息 - 使用 Supabase Auth Admin API（推荐方式）
+    const { data: { user: userInfo }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
     if (userError) {
       log('WARN', '无法获取用户信息，使用默认值', { 
@@ -163,7 +169,8 @@ router.post('/create-subscription', async (req, res) => {
 
     log('INFO', '用户信息', { 
       email: userInfo?.email,
-      hasMetadata: !!userInfo?.raw_user_meta_data 
+      hasMetadata: !!userInfo?.user_metadata,
+      userId: userInfo?.id 
     });
 
     // 使用 plan.id 作为 PayPal 计划 ID
@@ -184,12 +191,12 @@ router.post('/create-subscription', async (req, res) => {
       },
       subscriber: {
         name: {
-          given_name: userInfo?.raw_user_meta_data?.full_name?.split(' ')[0] || 
-                      userInfo?.raw_user_meta_data?.first_name || 
+          given_name: userInfo?.user_metadata?.full_name?.split(' ')[0] || 
+                      userInfo?.user_metadata?.first_name || 
                       userInfo?.email?.split('@')[0] || 
                       'User',
-          surname: userInfo?.raw_user_meta_data?.full_name?.split(' ')[1] || 
-                   userInfo?.raw_user_meta_data?.last_name || 
+          surname: userInfo?.user_metadata?.full_name?.split(' ')[1] || 
+                   userInfo?.user_metadata?.last_name || 
                    'Customer'
         },
         email_address: userInfo?.email || 'user@example.com'
@@ -271,7 +278,7 @@ router.post('/create-subscription', async (req, res) => {
     });
 
   } catch (error) {
-    log('ERROR', '创建订阅异常', {
+    log('ERROR', '创建订阅异常@@', {
       message: error.message,
       stack: error.stack,
       body: req.body
