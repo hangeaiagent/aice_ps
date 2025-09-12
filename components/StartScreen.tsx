@@ -13,6 +13,7 @@ import Spinner from './Spinner';
 import CreditsDisplay from './CreditsDisplay';
 import PermissionGuard from './PermissionGuard';
 import { Template } from '../App';
+import { TemplateService } from '../services/templateService';
 
 // New component to handle fetching and displaying template icon
 const TemplateButton: React.FC<{
@@ -55,8 +56,8 @@ const TemplateButton: React.FC<{
         </div>
       )}
       <img 
-        src={template.iconUrl} 
-        alt={template.name} 
+        src={template.cover_image_url || template.iconUrl} 
+        alt={template.title || template.name} 
         className="w-full h-full object-cover"
         onLoad={handleImageLoad}
         onError={handleImageError}
@@ -87,12 +88,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     // Fetch templates on component mount
     const fetchTemplates = async () => {
       try {
-        const response = await fetch('/templates.json');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data: Template[] = await response.json();
-        setTemplates(data);
+        const response = await TemplateService.getPopularTemplates(4);
+        setTemplates(response);
       } catch (error) {
         console.error("Failed to fetch templates:", error);
       }

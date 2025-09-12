@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import Spinner from './Spinner';
 import { SearchIcon } from './icons';
 import { Template } from '../App';
+import { TemplateService } from '../services/templateService';
 
 
 // New component to handle fetching and displaying template image
@@ -44,18 +45,61 @@ const TemplateCard: React.FC<{
             </div>
           )}
           <img 
-            src={template.iconUrl} 
-            alt={template.name} 
+            src={template.cover_image_url || template.iconUrl} 
+            alt={template.title || template.name} 
             className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
+          
+          {/* 显示统计信息和标签 */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            {template.is_featured && (
+              <span className="bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
+                精选
+              </span>
+            )}
+            {template.stats && (
+              <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                ❤️ {template.stats.like_count}
+              </span>
+            )}
+          </div>
         </div>
         <div className="p-4">
-          <h3 className="text-xl font-bold text-white truncate">{template.name}</h3>
-          <p className="text-gray-400 mt-2 text-sm h-20 overflow-hidden text-ellipsis">
-            {template.prompt}
+          <h3 className="text-xl font-bold text-white truncate">{template.title || template.name}</h3>
+          <p className="text-gray-400 mt-2 text-sm h-16 overflow-hidden text-ellipsis">
+            {template.description}
           </p>
+          
+          {/* 显示标签 */}
+          {template.tags && template.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {template.tags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="text-xs px-2 py-1 rounded-full"
+                  style={{ 
+                    backgroundColor: tag.color + '20', 
+                    color: tag.color,
+                    border: `1px solid ${tag.color}40`
+                  }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {/* 显示作者信息 */}
+          {template.author && (
+            <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+              <span>by {template.author.username}</span>
+              {template.author.is_creator && (
+                <span className="text-blue-400">✓ 认证创作者</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -74,40 +118,34 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [totalPages, setTotalPages] = useState(1);
 
     useEffect(() => {
         const fetchTemplates = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('/templates.json');
-                if (!response.ok) throw new Error('Failed to load templates.');
-                const data: Template[] = await response.json();
-                setTemplates(data);
+                const response = await TemplateService.getTemplates({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    search: searchQuery || undefined,
+                    sort: 'popular'
+                });
+                setTemplates(response.templates);
+                setTotalPages(Math.ceil(response.total / ITEMS_PER_PAGE));
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+                setError(err instanceof Error ? err.message : 'Failed to load templates.');
+                console.error('Failed to fetch templates:', err);
             } finally {
                 setIsLoading(false);
             }
         };
         fetchTemplates();
-    }, []);
+    }, [currentPage, searchQuery]);
 
     // Reset page to 1 when search query changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery]);
-
-    // Filtering logic
-    const filteredTemplates = templates.filter(template =>
-        template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        template.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        template.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Pagination logic based on filtered results
-    const totalPages = Math.ceil(filteredTemplates.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentTemplates = filteredTemplates.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {
@@ -147,17 +185,22 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {currentTemplates.length > 0 ? (
-                    currentTemplates.map(template => (
+                {templates.length > 0 ? (
+                    templates.map(template => (
                         <TemplateCard
                             key={template.id}
                             template={template}
                             onSelect={onTemplateSelect}
                         />
                     ))
-                ) : (
+                ) : !isLoading && (
                      <div className="col-span-full text-center py-16">
-                        <p className="text-gray-400 text-lg">找不到匹配 “<span className="font-semibold text-white">{searchQuery}</span>” 的模板。</p>
+                        <p className="text-gray-400 text-lg">
+                            {searchQuery ? 
+                                `找不到匹配 "${searchQuery}" 的模板。` : 
+                                '暂无模板数据。'
+                            }
+                        </p>
                     </div>
                 )}
             </div>

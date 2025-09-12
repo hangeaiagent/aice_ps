@@ -22,7 +22,14 @@ export default defineConfig(({ mode }) => {
           'localhost',
           '127.0.0.1',
           '54.89.140.250'
-        ]
+        ],
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3002',
+            changeOrigin: true,
+            secure: false
+          }
+        }
       }
     };
 });

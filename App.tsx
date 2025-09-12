@@ -115,11 +115,58 @@ export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' |
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
-  name: string;
-  iconUrl: string;
-  baseUrl: string;
+  // 兼容旧字段
+  name?: string;
+  iconUrl?: string;
+  baseUrl?: string;
+  // 新字段
+  title?: string;
+  cover_image_url?: string;
+  example_images?: string[];
   description: string;
   prompt: string;
+  // 扩展字段
+  author?: {
+    id: string;
+    username: string;
+    avatar_url: string;
+    is_creator?: boolean;
+    creator_level?: number;
+  };
+  category?: {
+    id: string;
+    name: string;
+    name_en?: string;
+    description?: string;
+  };
+  tags?: Array<{
+    id: string;
+    name: string;
+    color: string;
+    usage_count?: number;
+  }>;
+  difficulty_level?: number;
+  estimated_time?: number;
+  status?: string;
+  is_featured?: boolean;
+  is_premium?: boolean;
+  stats?: {
+    view_count: number;
+    download_count: number;
+    like_count: number;
+    comment_count: number;
+    rating_avg: number;
+    rating_count: number;
+  };
+  user_interaction?: {
+    is_liked: boolean;
+    is_favorited: boolean;
+    user_rating?: number;
+  };
+  version?: string;
+  created_at?: string;
+  updated_at?: string;
+  published_at?: string;
 }
 
 
@@ -713,7 +760,8 @@ const App: React.FC = () => {
     }
     
     // 设置编辑器初始状态并切换视图
-    setEditorInitialState({ baseImageUrl: template.baseUrl, prompt: template.prompt });
+    const baseImageUrl = template.example_images?.[0] || template.baseUrl || template.cover_image_url || '';
+    setEditorInitialState({ baseImageUrl, prompt: template.prompt });
     setSelectedTemplate(null);
     setActiveView('editor');
   };

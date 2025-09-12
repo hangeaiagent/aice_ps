@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Template } from '../App';
 import Spinner from './Spinner';
 import { hybridImageService } from '../services/hybridImageService';
+import { TemplateService } from '../services/templateService';
 import { PaintBrushIcon, CopyIcon, CheckIcon, ZoomInIcon } from './icons';
 import ImageLightbox from './ImageLightbox';
 
@@ -62,9 +63,16 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
     const loadImages = async () => {
       setError(null);
       try {
+        const beforeUrl = template.example_images?.[0] || template.baseUrl || template.cover_image_url;
+        const afterUrl = template.cover_image_url || template.iconUrl;
+        
+        if (!beforeUrl || !afterUrl) {
+          throw new Error('模板图片URL不完整');
+        }
+        
         const [beforeResponse, afterResponse] = await Promise.all([
-          fetch(template.baseUrl),
-          fetch(template.iconUrl)
+          fetch(beforeUrl),
+          fetch(afterUrl)
         ]);
 
         if (!beforeResponse.ok) throw new Error('无法加载原始图片。');
@@ -129,7 +137,7 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
     <>
       <div className="w-full max-w-5xl mx-auto p-4 md:p-8 animate-fade-in">
         <div className="text-center mb-8">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">{template.name}</h2>
+          <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">{template.title || template.name}</h2>
           <p className="text-gray-400 text-lg mt-2 max-w-2xl mx-auto">{template.description}</p>
         </div>
 
