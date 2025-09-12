@@ -93,6 +93,37 @@ server {
     listen 80;
     server_name nanobanana.gitagent.io;
     
+    # API 代理到后端服务 (端口3002)
+    location /api/ {
+        proxy_pass http://localhost:3002/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 86400;
+        
+        # CORS 头部设置
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, X-Requested-With' always;
+        
+        # 处理 OPTIONS 预检请求
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, X-Requested-With';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+    
+    # 前端应用代理 (端口8889)
     location / {
         proxy_pass http://localhost:8889;
         proxy_http_version 1.1;
@@ -130,31 +161,53 @@ source ~/.bashrc && conda activate AicePS
 # 进入项目目录
 cd /home/ec2-user/nanobanana
 
-# 启动应用 (后台运行)
-nohup npm run dev > app.log 2>&1 &
+# 1. 启动后端服务 (端口3002)
+cd server
+nohup node server.js > ../server.log 2>&1 &
+cd ..
+
+# 2. 启动前端应用 (端口8889)
+nohup npm run dev > frontend.log 2>&1 &
 
 # 或者前台运行 (用于调试)
-npm run dev -- --port 8889 --host 0.0.0.0
+# 后端: cd server && node server.js
+# 前端: npm run dev -- --port 8889 --host 0.0.0.0
 ```
 
 ### 进程管理
 ```bash
 # 查看运行状态
-ps aux | grep npm | grep -v grep
+ps aux | grep -E "(node.*server|npm.*dev)" | grep -v grep
 
 # 停止应用
-pkill -f 'npm run dev'
+pkill -f "node.*server.js"  # 停止后端
+pkill -f "npm.*dev"         # 停止前端
 
 # 查看日志
-tail -f /home/ec2-user/nanobanana/app.log
+tail -f /home/ec2-user/nanobanana/server.log    # 后端日志
+tail -f /home/ec2-user/nanobanana/frontend.log  # 前端日志
+
+# 健康检查
+curl http://localhost:3002/health  # 后端健康检查
+curl -I http://localhost:8889      # 前端状态检查
 ```
 
 ## 端口配置
 
 ### 固定端口规则
-- **应用端口**: 8889 (固定，避免与其他服务冲突)
+- **前端应用端口**: 8889 (Vite开发服务器)
+- **后端API端口**: 3002 (Node.js Express服务器)
 - **Nginx 监听**: 80 (HTTP) / 443 (HTTPS)
-- **内部代理**: localhost:8889
+- **内部代理**: 
+  - 前端: localhost:8889
+  - API: localhost:3002/api/
+
+### 架构说明
+```
+用户请求 → Nginx (80/443) → 分发请求
+                           ├── /api/* → 后端服务 (3002)
+                           └── /* → 前端应用 (8889)
+```
 
 ### 防火墙配置
 ```bash
@@ -185,17 +238,23 @@ sudo ufw allow 8889
 ### 调试命令
 ```bash
 # 检查端口占用
-netstat -tlnp | grep 8889
+netstat -tlnp | grep -E ":(8889|3002)"
 
 # 测试本地访问
-curl -I http://localhost:8889
+curl -I http://localhost:8889                    # 前端
+curl http://localhost:3002/health                # 后端健康检查
+curl "http://localhost:8889/api/templates?limit=1"  # API代理测试
 
 # 测试域名访问
 curl -I https://nanobanana.gitagent.io
+curl "https://nanobanana.gitagent.io/api/templates?limit=1"
 
 # 检查 Nginx 状态
 sudo nginx -t
 sudo systemctl status nginx
+
+# 检查 Nginx 配置
+grep -A 10 -B 5 "location /api" /etc/nginx/sites-available/nanobanana.gitagent.io
 ```
 
 ## 维护操作
@@ -203,10 +262,27 @@ sudo systemctl status nginx
 ### 更新代码
 ```bash
 cd /home/ec2-user/nanobanana
+
+# 停止现有服务
+pkill -f "node.*server.js"
+pkill -f "npm.*dev"
+
+# 更新代码
+git stash  # 保存本地修改
 git pull origin main
+
+# 安装依赖
 npm install
-pkill -f 'npm run dev'
-nohup npm run dev > app.log 2>&1 &
+cd server && npm install && cd ..
+
+# 重启服务
+cd server && nohup node server.js > ../server.log 2>&1 &
+cd .. && nohup npm run dev > frontend.log 2>&1 &
+
+# 验证服务状态
+sleep 5
+curl http://localhost:3002/health
+curl -I http://localhost:8889
 ```
 
 ### SSL 证书续期
