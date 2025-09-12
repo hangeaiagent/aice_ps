@@ -12,6 +12,17 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      server: {
+        host: '0.0.0.0',
+        port: 8889,
+        cors: true,
+        allowedHosts: [
+          'nanobanana.gitagent.io',
+          'localhost',
+          '127.0.0.1',
+          '54.89.140.250'
+        ]
       }
     };
 });
