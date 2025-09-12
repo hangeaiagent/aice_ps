@@ -14,17 +14,16 @@
 **解决方案**：
 ✅ 已修复 - 更新代码使用 `auth.users` 表并使用正确的字段名 `raw_user_meta_data`
 
-### 2. 订阅计划缺少PayPal计划ID
-**错误信息**：
-```
-[PAYMENTS] [ERROR] 订阅计划缺少PayPal计划ID
-```
-
-**原因**：
-- 数据库中的订阅计划没有配置 `paypal_plan_id`
+### 2. 订阅计划ID配置说明
+**重要更新**：
+- `pay_subscription_plans` 表的主键 `id` 直接作为 PayPal 计划 ID
+- 不再需要单独的 `paypal_plan_id` 字段
+- 插入数据时，需要将 `id` 设置为从 PayPal Dashboard 获取的计划 ID
 
 **解决方案**：
-需要在PayPal创建订阅计划并更新数据库
+1. 在 PayPal Dashboard 创建订阅计划
+2. 获取计划 ID（格式：P-XXXXXXXXXXXXX）
+3. 将此 ID 作为 `pay_subscription_plans` 表的主键插入
 
 ## PayPal订阅计划创建步骤
 
@@ -86,21 +85,35 @@
 
 ### 步骤4：更新数据库
 
-执行以下SQL更新数据库中的PayPal计划ID：
+由于 `pay_subscription_plans` 表的主键 `id` 直接作为 PayPal 计划 ID，需要重新插入数据：
 
 ```sql
--- 替换为您创建的真实PayPal计划ID
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-YOUR_STARTER_PLAN_ID'
-WHERE plan_code = 'starter';
+-- 先删除旧数据
+DELETE FROM pay_subscription_plans WHERE plan_code IN ('starter', 'pro', 'enterprise');
 
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-YOUR_PRO_PLAN_ID'
-WHERE plan_code = 'pro';
-
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-YOUR_ENTERPRISE_PLAN_ID'
-WHERE plan_code = 'enterprise';
+-- 插入新数据，使用PayPal计划ID作为主键
+INSERT INTO pay_subscription_plans (
+    id,  -- PayPal计划ID
+    plan_code, plan_name, monthly_price, features, max_credits, sort_order
+) VALUES 
+(
+    'P-YOUR_STARTER_PLAN_ID',  -- 替换为您的PayPal计划ID
+    'starter', '入门版', 9.99,
+    ARRAY['每月100张图片', '基础编辑功能', '标准客服支持'],
+    100, 1
+),
+(
+    'P-YOUR_PRO_PLAN_ID',  -- 替换为您的PayPal计划ID
+    'pro', '专业版', 19.99,
+    ARRAY['每月500张图片', '高级编辑功能', '优先客服支持', 'API访问'],
+    500, 2
+),
+(
+    'P-YOUR_ENTERPRISE_PLAN_ID',  -- 替换为您的PayPal计划ID
+    'enterprise', '企业版', 49.99,
+    ARRAY['无限图片处理', '全部功能', '专属客服', 'API访问', '自定义集成'],
+    -1, 3
+);
 ```
 
 ## 在Supabase中执行SQL

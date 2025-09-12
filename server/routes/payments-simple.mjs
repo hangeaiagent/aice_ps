@@ -166,18 +166,16 @@ router.post('/create-subscription', async (req, res) => {
       hasMetadata: !!userInfo?.raw_user_meta_data 
     });
 
-    // 检查计划是否有PayPal计划ID
-    if (!plan.paypal_plan_id) {
-      log('ERROR', '订阅计划缺少PayPal计划ID', { plan });
-      return res.status(400).json({
-        success: false,
-        error: '该订阅计划暂不支持PayPal支付，请联系客服'
-      });
-    }
+    // 使用 plan.id 作为 PayPal 计划 ID
+    log('INFO', '使用计划ID作为PayPal计划ID', { 
+      planId: plan.id,
+      planCode: plan.plan_code,
+      planName: plan.plan_name 
+    });
 
     // 创建 PayPal 订阅
     const subscriptionData = {
-      plan_id: plan.paypal_plan_id, // 使用数据库中的真实计划ID
+      plan_id: plan.id, // 直接使用 pay_subscription_plans 表的 id 作为 PayPal 计划 ID
       start_time: new Date(Date.now() + 60000).toISOString(), // 1分钟后开始
       quantity: '1',
       shipping_amount: {

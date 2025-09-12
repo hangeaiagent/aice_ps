@@ -1,20 +1,74 @@
--- 更新PayPal计划ID
--- 这些是示例PayPal计划ID，您需要在PayPal Dashboard创建真实的订阅计划并替换这些ID
+-- 重要说明：pay_subscription_plans 表的 id 字段直接作为 PayPal 计划 ID
+-- 因此需要在插入数据时，将 id 设置为从 PayPal Dashboard 获取的计划 ID
 
--- 更新入门版套餐的PayPal计划ID
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-5ML4271244454362WXNWU5NQ'
-WHERE plan_code = 'starter';
+-- 方法1：如果表中已有数据，需要删除并重新插入
+DELETE FROM pay_subscription_plans WHERE plan_code IN ('starter', 'pro', 'enterprise');
 
--- 更新专业版套餐的PayPal计划ID
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-1GJ4878431315332BXNWU5OQ'
-WHERE plan_code = 'pro';
+-- 方法2：插入新数据时，直接指定 id 为 PayPal 计划 ID
+-- 注意：需要先在 PayPal Dashboard 创建订阅计划，获取计划 ID
 
--- 更新企业版套餐的PayPal计划ID
-UPDATE pay_subscription_plans 
-SET paypal_plan_id = 'P-8HT4271244454362CXNWU5PQ'
-WHERE plan_code = 'enterprise';
+-- 插入入门版套餐（使用 PayPal 计划 ID 作为主键）
+INSERT INTO pay_subscription_plans (
+    id,  -- 这是 PayPal 计划 ID
+    plan_code, 
+    plan_name, 
+    monthly_price, 
+    features, 
+    max_credits, 
+    sort_order,
+    is_active
+) VALUES (
+    'P-5ML4271244454362WXNWU5NQ',  -- 替换为您的 PayPal 计划 ID
+    'starter',
+    '入门版',
+    9.99,
+    ARRAY['每月100张图片', '基础编辑功能', '标准客服支持'],
+    100,
+    1,
+    true
+);
+
+-- 插入专业版套餐
+INSERT INTO pay_subscription_plans (
+    id,
+    plan_code,
+    plan_name,
+    monthly_price,
+    features,
+    max_credits,
+    sort_order,
+    is_active
+) VALUES (
+    'P-1GJ4878431315332BXNWU5OQ',  -- 替换为您的 PayPal 计划 ID
+    'pro',
+    '专业版',
+    19.99,
+    ARRAY['每月500张图片', '高级编辑功能', '优先客服支持', 'API访问'],
+    500,
+    2,
+    true
+);
+
+-- 插入企业版套餐
+INSERT INTO pay_subscription_plans (
+    id,
+    plan_code,
+    plan_name,
+    monthly_price,
+    features,
+    max_credits,
+    sort_order,
+    is_active
+) VALUES (
+    'P-8HT4271244454362CXNWU5PQ',  -- 替换为您的 PayPal 计划 ID
+    'enterprise',
+    '企业版',
+    49.99,
+    ARRAY['无限图片处理', '全部功能', '专属客服', 'API访问', '自定义集成'],
+    -1,
+    3,
+    true
+);
 
 -- 验证更新结果
 SELECT 
