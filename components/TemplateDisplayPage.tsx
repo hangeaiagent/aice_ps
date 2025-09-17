@@ -63,24 +63,24 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
     const loadImages = async () => {
       setError(null);
       try {
-        const beforeUrl = template.example_images?.[0] || template.baseUrl || template.cover_image_url;
-        const afterUrl = template.cover_image_url || template.iconUrl;
+        const originalBeforeUrl = template.example_images?.[0] || template.baseUrl || template.cover_image_url;
+        const originalAfterUrl = template.cover_image_url || template.iconUrl;
         
-        console.log('🖼️ 加载图片URL:', { beforeUrl, afterUrl });
+        console.log('🖼️ 原始图片URL:', { originalBeforeUrl, originalAfterUrl });
         
-        if (!beforeUrl || !afterUrl) {
+        if (!originalBeforeUrl || !originalAfterUrl) {
           throw new Error('模板图片URL不完整');
         }
         
-        // 添加CORS处理
-        const fetchOptions = {
-          mode: 'cors' as RequestMode,
-          credentials: 'omit' as RequestCredentials
-        };
+        // 使用代理API来避免CORS问题
+        const beforeUrl = `/api/proxy-image?url=${encodeURIComponent(originalBeforeUrl)}`;
+        const afterUrl = `/api/proxy-image?url=${encodeURIComponent(originalAfterUrl)}`;
+        
+        console.log('🔄 使用代理URL:', { beforeUrl, afterUrl });
         
         const [beforeResponse, afterResponse] = await Promise.all([
-          fetch(beforeUrl, fetchOptions),
-          fetch(afterUrl, fetchOptions)
+          fetch(beforeUrl),
+          fetch(afterUrl)
         ]);
 
         if (!beforeResponse.ok) {

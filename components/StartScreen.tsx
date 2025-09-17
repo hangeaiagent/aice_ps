@@ -56,7 +56,7 @@ const TemplateButton: React.FC<{
         </div>
       )}
       <img 
-        src={template.cover_image_url || template.iconUrl} 
+        src={`/api/proxy-image?url=${encodeURIComponent(template.cover_image_url || template.iconUrl)}`}
         alt={template.title || template.name} 
         className="w-full h-full object-cover"
         onLoad={handleImageLoad}

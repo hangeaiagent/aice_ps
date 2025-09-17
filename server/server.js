@@ -65,6 +65,48 @@ app.use('/api/user-permissions', userPermissionsRouter);
 // 模板路由
 app.use('/api', templatesRouter);
 
+// 图片代理路由 - 解决CORS问题
+app.get('/api/proxy-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: '缺少 url 参数' });
+    }
+    
+    // 验证URL是否来自允许的域名
+    const allowedDomains = ['spotgitagent.s3.us-east-1.amazonaws.com', 'picsum.photos'];
+    const urlObj = new URL(url);
+    if (!allowedDomains.includes(urlObj.hostname)) {
+      return res.status(403).json({ error: '不允许的图片域名' });
+    }
+    
+    console.log('代理图片请求:', url);
+    
+    // 获取图片
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: '无法获取图片' });
+    }
+    
+    // 设置响应头
+    res.set({
+      'Content-Type': response.headers.get('content-type') || 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400', // 缓存1天
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+    });
+    
+    // 流式传输图片数据
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+    
+  } catch (error) {
+    console.error('图片代理失败:', error);
+    res.status(500).json({ error: '图片代理失败', message: error.message });
+  }
+});
+
 // 健康检查端点
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'AicePS Server is running' });
