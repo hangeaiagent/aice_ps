@@ -124,17 +124,20 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
         const fetchTemplates = async () => {
             setIsLoading(true);
             try {
+                console.log('🔄 开始获取模板数据...');
                 const response = await TemplateService.getTemplates({
                     page: currentPage,
                     limit: ITEMS_PER_PAGE,
                     search: searchQuery || undefined,
                     sort: 'popular'
                 });
+                console.log('📊 API响应:', response);
+                console.log('📋 模板数量:', response.templates.length);
                 setTemplates(response.templates);
                 setTotalPages(Math.ceil(response.total / ITEMS_PER_PAGE));
             } catch (err) {
+                console.error('❌ 获取模板失败:', err);
                 setError(err instanceof Error ? err.message : 'Failed to load templates.');
-                console.error('Failed to fetch templates:', err);
             } finally {
                 setIsLoading(false);
             }

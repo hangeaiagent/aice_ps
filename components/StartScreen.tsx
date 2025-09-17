@@ -88,7 +88,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     // Fetch templates on component mount
     const fetchTemplates = async () => {
       try {
-        const response = await TemplateService.getPopularTemplates(4);
+        const response = await TemplateService.getPopularTemplates(6);
         setTemplates(response);
       } catch (error) {
         console.error("Failed to fetch templates:", error);
@@ -290,6 +290,17 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                                 onSelect={onTemplateSelect}
                             />
                         ))}
+                    </div>
+                    
+                    {/* 更多模板按钮 */}
+                    <div className="flex justify-center mt-4 mb-2">
+                        <button
+                            onClick={onShowTemplateLibrary}
+                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-400 bg-blue-900/20 border border-blue-500/30 rounded-lg hover:bg-blue-900/40 hover:border-blue-400/50 transition-all duration-200 group"
+                        >
+                            <TemplateLibraryIcon className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                            更多模板
+                        </button>
                     </div>
 
                     <div className="relative my-3">

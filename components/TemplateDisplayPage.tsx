@@ -66,32 +66,47 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
         const beforeUrl = template.example_images?.[0] || template.baseUrl || template.cover_image_url;
         const afterUrl = template.cover_image_url || template.iconUrl;
         
+        console.log('🖼️ 加载图片URL:', { beforeUrl, afterUrl });
+        
         if (!beforeUrl || !afterUrl) {
           throw new Error('模板图片URL不完整');
         }
         
+        // 添加CORS处理
+        const fetchOptions = {
+          mode: 'cors' as RequestMode,
+          credentials: 'omit' as RequestCredentials
+        };
+        
         const [beforeResponse, afterResponse] = await Promise.all([
-          fetch(beforeUrl),
-          fetch(afterUrl)
+          fetch(beforeUrl, fetchOptions),
+          fetch(afterUrl, fetchOptions)
         ]);
 
-        if (!beforeResponse.ok) throw new Error('无法加载原始图片。');
+        if (!beforeResponse.ok) {
+          console.error('❌ 原始图片加载失败:', beforeResponse.status, beforeResponse.statusText);
+          throw new Error('无法加载原始图片。');
+        }
+        
+        if (!afterResponse.ok) {
+          console.error('❌ 预览图片加载失败:', afterResponse.status, afterResponse.statusText);
+          throw new Error('无法加载预览图片。');
+        }
+        
         const beforeBlob = await beforeResponse.blob();
         beforeObjectUrl = URL.createObjectURL(beforeBlob);
         setBeforeImageUrl(beforeObjectUrl);
-        const fileName = template.baseUrl.split('/').pop() || 'template.jpg';
+        const fileName = (template.baseUrl || beforeUrl).split('/').pop() || 'template.jpg';
         const imageFile = new File([beforeBlob], fileName, { type: beforeBlob.type });
         setBeforeImageFile(imageFile);
 
-        if (!afterResponse.ok) throw new Error('无法加载预览图片。');
         const afterBlob = await afterResponse.blob();
         afterObjectUrl = URL.createObjectURL(afterBlob);
         setAfterPreviewUrl(afterObjectUrl);
 
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '发生未知错误。';
-        setError(errorMessage);
-        console.error("Error loading template images:", err);
+        console.error("🚫 图片加载错误:", err);
+        setError(err instanceof Error ? err.message : '发生未知错误。');
       }
     };
 
