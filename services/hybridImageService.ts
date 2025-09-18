@@ -6,6 +6,7 @@
 import * as geminiService from './geminiService';
 import { apiService, ImageGenerationResult, BatchImageResult } from './apiService';
 import { permissionService, FeatureType } from './permissionService';
+import { taskHistoryService } from './taskHistoryService';
 import { supabase } from '../lib/supabase';
 
 // 检查是否应该使用服务器端生成
@@ -109,45 +110,152 @@ class HybridImageService {
   }
   // 从文本生成图片
   async generateImageFromText(prompt: string, aspectRatio: string = '1:1'): Promise<string> {
-    // 权限检查和积分消费
-    const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { aspectRatio });
-    
-    if (!permissionCheck.allowed) {
-      throw new Error(permissionCheck.message || '权限不足');
-    }
+    const startTime = Date.now();
+    let taskRecord: { taskId: string; completeTask: any } | null = null;
 
-    if (shouldUseServerGeneration()) {
-      try {
-        const result = await apiService.generateImageFromText(prompt, aspectRatio);
-        return await convertApiResultToDataUrl(result);
-      } catch (error) {
-        console.warn('服务器端生成失败，回退到本地生成:', error);
-        return await geminiService.generateImageFromText(prompt, aspectRatio);
+    try {
+      // 权限检查和积分消费
+      const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { aspectRatio });
+      
+      if (!permissionCheck.allowed) {
+        throw new Error(permissionCheck.message || '权限不足');
       }
-    } else {
-      return await geminiService.generateImageFromText(prompt, aspectRatio);
+
+      // 创建任务记录
+      try {
+        taskRecord = await taskHistoryService.recordImageGeneration(
+          prompt,
+          'image_generation',
+          aspectRatio
+        );
+      } catch (recordError) {
+        console.warn('创建任务记录失败，继续执行图片生成:', recordError);
+      }
+
+      let imageDataUrl: string;
+
+      if (shouldUseServerGeneration()) {
+        try {
+          const result = await apiService.generateImageFromText(prompt, aspectRatio);
+          imageDataUrl = await convertApiResultToDataUrl(result);
+        } catch (error) {
+          console.warn('服务器端生成失败，回退到本地生成:', error);
+          imageDataUrl = await geminiService.generateImageFromText(prompt, aspectRatio);
+        }
+      } else {
+        imageDataUrl = await geminiService.generateImageFromText(prompt, aspectRatio);
+      }
+
+      // 完成任务记录
+      if (taskRecord) {
+        try {
+          await taskRecord.completeTask({
+            imageDataUrl,
+            tokensUsed: this.estimateTokenUsage(prompt),
+            creditsDeducted: 1,
+            generationTimeMs: Date.now() - startTime
+          });
+        } catch (recordError) {
+          console.warn('完成任务记录失败:', recordError);
+        }
+      }
+
+      return imageDataUrl;
+
+    } catch (error) {
+      // 记录失败的任务
+      if (taskRecord) {
+        try {
+          await taskRecord.completeTask({
+            tokensUsed: this.estimateTokenUsage(prompt),
+            creditsDeducted: 1,
+            generationTimeMs: Date.now() - startTime,
+            error: error instanceof Error ? error.message : '图片生成失败'
+          });
+        } catch (recordError) {
+          console.warn('记录失败任务失败:', recordError);
+        }
+      }
+      throw error;
     }
+  }
+
+  // 估算token使用量
+  private estimateTokenUsage(prompt: string): number {
+    // 简单的token估算：大约每4个字符1个token
+    return Math.ceil(prompt.length / 4);
   }
 
   // 生成编辑后的图片
   async generateEditedImage(imageFile: File, prompt: string, hotspot: { x: number; y: number }): Promise<string> {
-    // 权限检查和积分消费
-    const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { type: 'edit' });
-    
-    if (!permissionCheck.allowed) {
-      throw new Error(permissionCheck.message || '权限不足');
-    }
+    const startTime = Date.now();
+    let taskRecord: { taskId: string; completeTask: any } | null = null;
 
-    if (shouldUseServerGeneration()) {
-      try {
-        const result = await apiService.generateEditedImage(imageFile, prompt, hotspot);
-        return await convertApiResultToDataUrl(result);
-      } catch (error) {
-        console.warn('服务器端编辑失败，回退到本地编辑:', error);
-        return await geminiService.generateEditedImage(imageFile, prompt, hotspot);
+    try {
+      // 权限检查和积分消费
+      const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { type: 'edit' });
+      
+      if (!permissionCheck.allowed) {
+        throw new Error(permissionCheck.message || '权限不足');
       }
-    } else {
-      return await geminiService.generateEditedImage(imageFile, prompt, hotspot);
+
+      // 创建任务记录
+      try {
+        taskRecord = await taskHistoryService.recordImageGeneration(
+          prompt,
+          'image_edit',
+          undefined,
+          imageFile
+        );
+      } catch (recordError) {
+        console.warn('创建任务记录失败，继续执行图片编辑:', recordError);
+      }
+
+      let imageDataUrl: string;
+
+      if (shouldUseServerGeneration()) {
+        try {
+          const result = await apiService.generateEditedImage(imageFile, prompt, hotspot);
+          imageDataUrl = await convertApiResultToDataUrl(result);
+        } catch (error) {
+          console.warn('服务器端编辑失败，回退到本地编辑:', error);
+          imageDataUrl = await geminiService.generateEditedImage(imageFile, prompt, hotspot);
+        }
+      } else {
+        imageDataUrl = await geminiService.generateEditedImage(imageFile, prompt, hotspot);
+      }
+
+      // 完成任务记录
+      if (taskRecord) {
+        try {
+          await taskRecord.completeTask({
+            imageDataUrl,
+            tokensUsed: this.estimateTokenUsage(prompt),
+            creditsDeducted: 1,
+            generationTimeMs: Date.now() - startTime
+          });
+        } catch (recordError) {
+          console.warn('完成任务记录失败:', recordError);
+        }
+      }
+
+      return imageDataUrl;
+
+    } catch (error) {
+      // 记录失败的任务
+      if (taskRecord) {
+        try {
+          await taskRecord.completeTask({
+            tokensUsed: this.estimateTokenUsage(prompt),
+            creditsDeducted: 1,
+            generationTimeMs: Date.now() - startTime,
+            error: error instanceof Error ? error.message : '图片编辑失败'
+          });
+        } catch (recordError) {
+          console.warn('记录失败任务失败:', recordError);
+        }
+      }
+      throw error;
     }
   }
 

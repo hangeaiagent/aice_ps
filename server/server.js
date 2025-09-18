@@ -10,6 +10,7 @@ import { imageGenerationService } from './services/imageService.js';
 import paymentsRouter from './routes/payments-simple.mjs';
 import userPermissionsRouter from './routes/user-permissions.mjs';
 import templatesRouter from './routes/templates.mjs';
+import taskHistoryRouter from './routes/task-history.mjs';
 
 dotenv.config();
 
@@ -64,6 +65,9 @@ app.use('/api/user-permissions', userPermissionsRouter);
 
 // 模板路由
 app.use('/api', templatesRouter);
+
+// 任务记录路由
+app.use('/api/task-history', taskHistoryRouter);
 
 // 图片代理路由 - 解决CORS问题
 app.get('/api/proxy-image', async (req, res) => {

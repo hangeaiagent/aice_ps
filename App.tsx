@@ -25,6 +25,7 @@ import PastForwardPage from './components/PastForwardPage';
 import BeatSyncPage from './components/BeatSyncPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
 import TemplateDisplayPage from './components/TemplateDisplayPage';
+import TaskHistoryPage from './components/TaskHistoryPage';
 import PricingPage from './components/PricingPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
@@ -111,7 +112,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'pricing' | 'payment-success' | 'payment-cancel';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'pricing' | 'payment-success' | 'payment-cancel';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -766,15 +767,22 @@ const App: React.FC = () => {
     setActiveView('editor');
   };
 
-  // 监听导航到价格页面的事件
+  // 监听导航事件
   useEffect(() => {
     const handleNavigateToPricing = () => {
       setActiveView('pricing');
     };
 
+    const handleNavigateToTaskHistory = () => {
+      setActiveView('task-history');
+    };
+
     window.addEventListener('navigateToPricing', handleNavigateToPricing);
+    window.addEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
+    
     return () => {
       window.removeEventListener('navigateToPricing', handleNavigateToPricing);
+      window.removeEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
     };
   }, []);
 
@@ -823,11 +831,13 @@ const App: React.FC = () => {
                     onUseInEditor={handleUseTemplateInEditor}
                 />
             ) : null;
+        case 'task-history': 
+            return <TaskHistoryPage onBack={() => setActiveView('editor')} />;
         case 'pricing': return <PricingPage />;
-        case 'payment-success': return <PaymentSuccessPage onNavigateHome={() => setCurrentView('editor')} />;
+        case 'payment-success': return <PaymentSuccessPage onNavigateHome={() => setActiveView('editor')} />;
         case 'payment-cancel': return <PaymentCancelPage 
-          onNavigateHome={() => setCurrentView('editor')} 
-          onNavigateToPricing={() => setCurrentView('pricing')} 
+          onNavigateHome={() => setActiveView('editor')} 
+          onNavigateToPricing={() => setActiveView('pricing')} 
         />;
         case 'editor':
         default:
