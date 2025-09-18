@@ -33,7 +33,7 @@ function log(level, message, data = null) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // 中间件
 app.use(cors());
