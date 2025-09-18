@@ -113,22 +113,36 @@ class HybridImageService {
     const startTime = Date.now();
     let taskRecord: { taskId: string; completeTask: any } | null = null;
 
+    console.log('🔄 [TaskRecord] 开始图片生成流程...');
+    console.log('📝 [TaskRecord] 提示词:', prompt);
+    console.log('📐 [TaskRecord] 宽高比:', aspectRatio);
+
     try {
+      // 检查用户登录状态
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('👤 [TaskRecord] 用户状态:', user ? `已登录 (${user.id})` : '未登录', userError ? `错误: ${userError.message}` : '');
+
       // 权限检查和积分消费
+      console.log('🔐 [TaskRecord] 开始权限检查...');
       const permissionCheck = await this.checkPermissionAndConsumeCredits('nano_banana', { aspectRatio });
+      console.log('🔐 [TaskRecord] 权限检查结果:', permissionCheck);
       
       if (!permissionCheck.allowed) {
+        console.log('❌ [TaskRecord] 权限检查失败:', permissionCheck.message);
         throw new Error(permissionCheck.message || '权限不足');
       }
 
       // 创建任务记录
+      console.log('📋 [TaskRecord] 开始创建任务记录...');
       try {
         taskRecord = await taskHistoryService.recordImageGeneration(
           prompt,
           'image_generation',
           aspectRatio
         );
+        console.log('✅ [TaskRecord] 任务记录创建成功:', taskRecord.taskId);
       } catch (recordError) {
+        console.error('❌ [TaskRecord] 创建任务记录失败:', recordError);
         console.warn('创建任务记录失败，继续执行图片生成:', recordError);
       }
 
@@ -146,34 +160,53 @@ class HybridImageService {
         imageDataUrl = await geminiService.generateImageFromText(prompt, aspectRatio);
       }
 
+      console.log('🎨 [TaskRecord] 图片生成完成，开始完成任务记录...');
+      
       // 完成任务记录
       if (taskRecord) {
         try {
-          await taskRecord.completeTask({
+          const completionData = {
             imageDataUrl,
             tokensUsed: this.estimateTokenUsage(prompt),
             creditsDeducted: 1,
             generationTimeMs: Date.now() - startTime
+          };
+          console.log('📊 [TaskRecord] 任务完成数据:', { 
+            tokensUsed: completionData.tokensUsed, 
+            creditsDeducted: completionData.creditsDeducted, 
+            generationTimeMs: completionData.generationTimeMs,
+            imageDataLength: completionData.imageDataUrl.length 
           });
+          
+          await taskRecord.completeTask(completionData);
+          console.log('✅ [TaskRecord] 任务记录完成成功');
         } catch (recordError) {
-          console.warn('完成任务记录失败:', recordError);
+          console.error('❌ [TaskRecord] 完成任务记录失败:', recordError);
         }
+      } else {
+        console.log('⚠️ [TaskRecord] 没有任务记录需要完成');
       }
 
       return imageDataUrl;
 
     } catch (error) {
+      console.log('💥 [TaskRecord] 图片生成过程中出现错误:', error);
+      
       // 记录失败的任务
       if (taskRecord) {
         try {
-          await taskRecord.completeTask({
+          const errorData = {
             tokensUsed: this.estimateTokenUsage(prompt),
             creditsDeducted: 1,
             generationTimeMs: Date.now() - startTime,
             error: error instanceof Error ? error.message : '图片生成失败'
-          });
+          };
+          console.log('📊 [TaskRecord] 错误任务数据:', errorData);
+          
+          await taskRecord.completeTask(errorData);
+          console.log('✅ [TaskRecord] 失败任务记录完成');
         } catch (recordError) {
-          console.warn('记录失败任务失败:', recordError);
+          console.error('❌ [TaskRecord] 记录失败任务失败:', recordError);
         }
       }
       throw error;
