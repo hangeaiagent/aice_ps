@@ -5,9 +5,9 @@
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
-import AWS from 'aws-sdk';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
+import { storageService } from '../services/storageService.js';
 
 const router = express.Router();
 
@@ -15,15 +15,6 @@ const router = express.Router();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// 初始化 AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION || 'us-east-1'
-});
-
-const S3_BUCKET = process.env.S3_BUCKET_NAME || 'spotgitagent';
 
 // 配置 multer 用于处理文件上传
 const upload = multer({
@@ -62,21 +53,14 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-// 上传图片到 AWS S3
-const uploadToS3 = async (buffer, key, contentType) => {
-  const params = {
-    Bucket: S3_BUCKET,
-    Key: key,
-    Body: buffer,
-    ContentType: contentType,
-    ACL: 'public-read'
-  };
-
+// 上传图片到存储服务（支持本地和AWS）
+const uploadToStorage = async (buffer, filename, contentType) => {
   try {
-    const result = await s3.upload(params).promise();
-    return result.Location;
+    // 使用 storageService 来处理文件存储
+    const imageUrl = await storageService.saveImage(buffer, filename, contentType);
+    return imageUrl;
   } catch (error) {
-    log('ERROR', 'S3上传失败', { error: error.message, key });
+    log('ERROR', '文件上传失败', { error: error.message, filename });
     throw error;
   }
 };
@@ -146,19 +130,19 @@ router.put('/tasks/:taskId/original-image', authenticateUser, upload.single('ima
       return res.status(404).json({ success: false, error: '任务不存在' });
     }
 
-    // 生成S3 key
+    // 生成文件名
     const fileExtension = imageFile.originalname.split('.').pop() || 'jpg';
-    const s3Key = `task-history/${req.user.id}/${taskId}/original.${fileExtension}`;
+    const filename = `task-history_${req.user.id}_${taskId}_original.${fileExtension}`;
 
-    // 上传到S3
-    const imageUrl = await uploadToS3(imageFile.buffer, s3Key, imageFile.mimetype);
+    // 上传到存储服务
+    const imageUrl = await uploadToStorage(imageFile.buffer, filename, imageFile.mimetype);
 
     // 更新任务记录
     const { data: updatedTask, error: updateError } = await supabase
       .from('user_task_history')
       .update({
         original_image_url: imageUrl,
-        aws_original_key: s3Key,
+        aws_original_key: filename,
         status: 'processing'
       })
       .eq('id', taskId)
@@ -218,14 +202,14 @@ router.put('/tasks/:taskId/complete', authenticateUser, async (req, res) => {
         const base64Data = generated_image_data.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
         
-        // 生成S3 key
-        const s3Key = `task-history/${req.user.id}/${taskId}/generated.jpg`;
+        // 生成文件名
+        const filename = `task-history_${req.user.id}_${taskId}_generated.jpg`;
         
-        // 上传到S3
-        const imageUrl = await uploadToS3(buffer, s3Key, 'image/jpeg');
+        // 上传到存储服务
+        const imageUrl = await uploadToStorage(buffer, filename, 'image/jpeg');
         
         updateData.generated_image_url = imageUrl;
-        updateData.aws_generated_key = s3Key;
+        updateData.aws_generated_key = filename;
         updateData.status = 'completed';
         
         log('INFO', '生成图片上传成功', { taskId, imageUrl });
@@ -443,16 +427,13 @@ router.delete('/tasks/:taskId', authenticateUser, async (req, res) => {
       return res.status(404).json({ success: false, error: '任务不存在' });
     }
 
-    // 删除S3文件
-    const deletePromises = [];
-    if (task.aws_original_key) {
-      deletePromises.push(s3.deleteObject({ Bucket: S3_BUCKET, Key: task.aws_original_key }).promise());
-    }
-    if (task.aws_generated_key) {
-      deletePromises.push(s3.deleteObject({ Bucket: S3_BUCKET, Key: task.aws_generated_key }).promise());
-    }
-
-    await Promise.all(deletePromises);
+    // 注意：本地存储的文件可能需要手动清理
+    // AWS S3 可以配置生命周期策略自动清理
+    // 这里暂时不实现文件删除，避免误删重要文件
+    log('INFO', '任务文件清理跳过', { 
+      originalKey: task.aws_original_key, 
+      generatedKey: task.aws_generated_key 
+    });
 
     // 删除数据库记录
     const { error: deleteError } = await supabase
