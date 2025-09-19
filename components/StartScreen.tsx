@@ -339,6 +339,26 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                   >
                       <TemplateLibraryIcon className="w-6 h-6" />
                   </button>
+                  <button 
+                      onClick={() => {
+                        // 检查登录状态
+                        if (!isAuthenticated) {
+                          // 触发登录模态框
+                          const event = new CustomEvent('openAuthModal');
+                          window.dispatchEvent(event);
+                          return;
+                        }
+                        // 触发导航到多图片融合页面的事件
+                        const event = new CustomEvent('navigateToMultiImageFusion');
+                        window.dispatchEvent(event);
+                      }}
+                      className="flex-shrink-0 p-4 bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-full cursor-pointer hover:from-purple-700 hover:to-blue-700 transition-all group"
+                      title="AI图片融合"
+                  >
+                      <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                  </button>
               </div>
               <p className="text-sm text-gray-500 mt-2">也可以直接拖放或粘贴文件到此区域</p>
               <input id="image-upload-start" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />

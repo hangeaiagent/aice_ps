@@ -26,6 +26,7 @@ import BeatSyncPage from './components/BeatSyncPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
 import TemplateDisplayPage from './components/TemplateDisplayPage';
 import TaskHistoryPage from './components/TaskHistoryPage';
+import MultiImageFusion from './components/MultiImageFusion';
 import PricingPage from './components/PricingPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
@@ -112,7 +113,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'pricing' | 'payment-success' | 'payment-cancel';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'multi-image-fusion' | 'pricing' | 'payment-success' | 'payment-cancel';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -777,12 +778,18 @@ const App: React.FC = () => {
       setActiveView('task-history');
     };
 
+    const handleNavigateToMultiImageFusion = () => {
+      setActiveView('multi-image-fusion');
+    };
+
     window.addEventListener('navigateToPricing', handleNavigateToPricing);
     window.addEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
+    window.addEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
     
     return () => {
       window.removeEventListener('navigateToPricing', handleNavigateToPricing);
       window.removeEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
+      window.removeEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
     };
   }, []);
 
@@ -833,6 +840,8 @@ const App: React.FC = () => {
             ) : null;
         case 'task-history': 
             return <TaskHistoryPage onBack={() => setActiveView('editor')} />;
+        case 'multi-image-fusion':
+            return <MultiImageFusion onBack={() => setActiveView('editor')} />;
         case 'pricing': return <PricingPage />;
         case 'payment-success': return <PaymentSuccessPage onNavigateHome={() => setActiveView('editor')} />;
         case 'payment-cancel': return <PaymentCancelPage 
