@@ -86,12 +86,30 @@ async function checkFeaturePermission(userId, feature) {
       return result;
     }
 
-    const hasPermission = result.data.permissions.features[feature] || false;
+    const { permissions, credits } = result.data;
+    const hasFeatureAccess = permissions.features[feature] || false;
+    const creditsRemaining = permissions.creditsRemaining || 0;
+    const creditsRequired = 1; // 默认每次操作消耗1个积分
+    const hasEnoughCredits = creditsRemaining >= creditsRequired;
+    const canUse = hasFeatureAccess && hasEnoughCredits;
+    
+    let reason = '';
+    if (!hasFeatureAccess) {
+      reason = `功能 ${feature} 在您的计划中不可用`;
+    } else if (!hasEnoughCredits) {
+      reason = `积分不足，需要 ${creditsRequired} 积分，当前剩余 ${creditsRemaining} 积分`;
+    }
     
     return {
       success: true,
       data: {
-        hasPermission,
+        canUse,
+        hasFeatureAccess,
+        hasEnoughCredits,
+        creditsRequired,
+        creditsRemaining,
+        reason,
+        planCode: permissions.planCode,
         feature
       }
     };
