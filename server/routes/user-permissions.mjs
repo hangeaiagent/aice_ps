@@ -50,15 +50,15 @@ async function getUserPermissions(userId) {
       isSubscribed: !!subscriptions,
       subscriptionStatus: subscriptions?.status || 'none',
       features: {
-        nano_banana: subscriptions?.pay_subscription_plans?.features?.nano_banana || false,
+        nano_banana: subscriptions?.pay_subscription_plans?.features?.nano_banana || true, // 免费用户也可以使用基础图片生成
         veo3_video: subscriptions?.pay_subscription_plans?.features?.veo3_video || false,
-        sticker: subscriptions?.pay_subscription_plans?.features?.sticker || false,
+        sticker: subscriptions?.pay_subscription_plans?.features?.sticker || true, // 免费用户可以使用贴纸功能
         batch_processing: subscriptions?.pay_subscription_plans?.features?.batch_processing || false,
         professional_canvas: subscriptions?.pay_subscription_plans?.features?.professional_canvas || false,
         templates: subscriptions?.pay_subscription_plans?.features?.templates || 'basic'
       },
       monthlyQuota: subscriptions?.pay_subscription_plans?.monthly_quota || 10,
-      creditsRemaining: credits?.available_credits || 0
+      creditsRemaining: credits?.available_credits || 10 // 免费用户默认10个积分
     };
 
     return {
