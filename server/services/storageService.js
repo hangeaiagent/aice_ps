@@ -46,7 +46,7 @@ class StorageService {
     try {
       await fs.writeFile(filePath, imageBuffer);
       
-      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3002}`;
       const imageUrl = `${baseUrl}/images/${filename}`;
       
       console.log('图片已保存到本地:', filePath);

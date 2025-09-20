@@ -135,14 +135,18 @@ router.put('/tasks/:taskId/original-image', authenticateUser, upload.single('ima
     const filename = `task-history_${req.user.id}_${taskId}_original.${fileExtension}`;
 
     // 上传到存储服务
-    const imageUrl = await uploadToStorage(imageFile.buffer, filename, imageFile.mimetype);
+    const uploadResult = await uploadToStorage(imageFile.buffer, filename, imageFile.mimetype);
+    
+    // 提取正确的URL
+    const imageUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.imageUrl;
+    const storageKey = typeof uploadResult === 'string' ? filename : uploadResult.filename;
 
     // 更新任务记录
     const { data: updatedTask, error: updateError } = await supabase
       .from('user_task_history')
       .update({
         original_image_url: imageUrl,
-        aws_original_key: filename,
+        aws_original_key: storageKey,
         status: 'processing'
       })
       .eq('id', taskId)
@@ -206,10 +210,14 @@ router.put('/tasks/:taskId/complete', authenticateUser, async (req, res) => {
         const filename = `task-history_${req.user.id}_${taskId}_generated.jpg`;
         
         // 上传到存储服务
-        const imageUrl = await uploadToStorage(buffer, filename, 'image/jpeg');
+        const uploadResult = await uploadToStorage(buffer, filename, 'image/jpeg');
+        
+        // 提取正确的URL
+        const imageUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.imageUrl;
+        const storageKey = typeof uploadResult === 'string' ? filename : uploadResult.filename;
         
         updateData.generated_image_url = imageUrl;
-        updateData.aws_generated_key = filename;
+        updateData.aws_generated_key = storageKey;
         updateData.status = 'completed';
         
         log('INFO', '生成图片上传成功', { taskId, imageUrl });
@@ -218,10 +226,13 @@ router.put('/tasks/:taskId/complete', authenticateUser, async (req, res) => {
         updateData.status = 'failed';
         updateData.error_message = '图片上传失败: ' + uploadError.message;
       }
-    } else {
+    } else if (error_message) {
       // 任务失败
       updateData.status = 'failed';
-      updateData.error_message = error_message || '图片生成失败';
+      updateData.error_message = error_message;
+    } else {
+      // 任务成功但没有生成图片数据
+      updateData.status = 'completed';
     }
 
     // 更新任务记录
