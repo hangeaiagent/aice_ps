@@ -29,6 +29,24 @@ const TaskHistoryPage: React.FC<TaskHistoryPageProps> = ({ onBack }) => {
   const [statistics, setStatistics] = useState<TaskStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 辅助函数：解析图片URL
+  const parseImageUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    
+    try {
+      // 如果是JSON字符串，解析并提取imageUrl
+      if (typeof url === 'string' && url.startsWith('{')) {
+        const parsed = JSON.parse(url);
+        return parsed.imageUrl || null;
+      }
+      // 否则直接返回URL
+      return url;
+    } catch (error) {
+      console.warn('解析图片URL失败:', error);
+      return url;
+    }
+  };
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -352,10 +370,13 @@ const TaskHistoryPage: React.FC<TaskHistoryPageProps> = ({ onBack }) => {
                         <div className="flex flex-col items-center">
                           <p className="text-xs text-gray-400 mb-1">原始图片</p>
                           <img
-                            src={task.original_image_url}
+                            src={parseImageUrl(task.original_image_url) || ''}
                             alt="原始图片"
                             className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setLightboxImage(task.original_image_url!)}
+                            onClick={() => {
+                              const imageUrl = parseImageUrl(task.original_image_url);
+                              if (imageUrl) setLightboxImage(imageUrl);
+                            }}
                           />
                         </div>
                       )}
@@ -363,10 +384,13 @@ const TaskHistoryPage: React.FC<TaskHistoryPageProps> = ({ onBack }) => {
                         <div className="flex flex-col items-center">
                           <p className="text-xs text-gray-400 mb-1">生成图片</p>
                           <img
-                            src={task.generated_image_url}
+                            src={parseImageUrl(task.generated_image_url) || ''}
                             alt="生成图片"
                             className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setLightboxImage(task.generated_image_url!)}
+                            onClick={() => {
+                              const imageUrl = parseImageUrl(task.generated_image_url);
+                              if (imageUrl) setLightboxImage(imageUrl);
+                            }}
                           />
                         </div>
                       )}
@@ -374,22 +398,22 @@ const TaskHistoryPage: React.FC<TaskHistoryPageProps> = ({ onBack }) => {
 
                     {/* 统计信息 */}
                     <div className="flex items-center gap-6 text-sm text-gray-400">
-                      {task.tokens_used !== undefined && (
+                      {task.tokens_used !== null && task.tokens_used !== undefined && (
                         <span className="flex items-center gap-1">
                           <CpuChipIcon className="w-4 h-4" />
-                          {task.tokens_used} tokens
+                          {task.tokens_used || 0} tokens
                         </span>
                       )}
-                      {task.credits_deducted !== undefined && (
+                      {task.credits_deducted !== null && task.credits_deducted !== undefined && (
                         <span className="flex items-center gap-1">
                           <CurrencyDollarIcon className="w-4 h-4" />
-                          {task.credits_deducted} 积分
+                          {task.credits_deducted || 0} 积分
                         </span>
                       )}
-                      {task.generation_time_ms !== undefined && (
+                      {task.generation_time_ms !== null && task.generation_time_ms !== undefined && (
                         <span className="flex items-center gap-1">
                           <ClockIcon className="w-4 h-4" />
-                          {formatDuration(task.generation_time_ms)}
+                          {formatDuration(task.generation_time_ms || 0)}
                         </span>
                       )}
                     </div>
