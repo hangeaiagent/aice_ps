@@ -1,8 +1,8 @@
-const express = require('express');
-const multer = require('multer');
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import multer from 'multer';
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 const router = express.Router();
 
 // 配置文件上传
@@ -245,4 +245,4 @@ router.get('/custom-image-generation/health', (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;
