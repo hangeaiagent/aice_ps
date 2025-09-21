@@ -30,7 +30,7 @@ import MultiImageFusion from './components/MultiImageFusion';
 import PricingPage from './components/PricingPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
-import ChatDialog from './components/ChatDialog';
+
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
     const arr = dataurl.split(',');
@@ -734,7 +734,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('editor');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
-  const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
   const [editorInitialState, setEditorInitialState] = useState<EditorInitialState | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
@@ -782,20 +782,14 @@ const App: React.FC = () => {
       setActiveView('multi-image-fusion');
     };
 
-    const handleOpenChatDialog = () => {
-      setIsChatDialogOpen(true);
-    };
-
     window.addEventListener('navigateToPricing', handleNavigateToPricing);
     window.addEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
     window.addEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
-    window.addEventListener('openChatDialog', handleOpenChatDialog);
     
     return () => {
       window.removeEventListener('navigateToPricing', handleNavigateToPricing);
       window.removeEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
       window.removeEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
-      window.removeEventListener('openChatDialog', handleOpenChatDialog);
     };
   }, []);
 
@@ -896,9 +890,6 @@ const App: React.FC = () => {
           isOpen={isHelpModalOpen}
           onClose={() => setIsHelpModalOpen(false)}
         />
-        <ChatDialog
-          isOpen={isChatDialogOpen}
-          onClose={() => setIsChatDialogOpen(false)}        />
         <AnimatePresence>
           {notification && (
             <motion.div

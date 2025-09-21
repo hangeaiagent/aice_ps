@@ -896,9 +896,6 @@ const App: React.FC = () => {
           isOpen={isHelpModalOpen}
           onClose={() => setIsHelpModalOpen(false)}
         />
-        <ChatDialog
-          isOpen={isChatDialogOpen}
-          onClose={() => setIsChatDialogOpen(false)}        />
         <AnimatePresence>
           {notification && (
             <motion.div

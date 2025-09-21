@@ -69,6 +69,10 @@ app.use('/api', templatesRouter);
 // 任务记录路由
 app.use('/api/task-history', taskHistoryRouter);
 
+// 自定义图片生成路由
+const customImageGenerationRouter = require('./routes/custom-image-generation');
+app.use('/api', customImageGenerationRouter);
+
 // 图片代理路由 - 解决CORS问题
 app.get('/api/proxy-image', async (req, res) => {
   try {
