@@ -7,7 +7,7 @@ import {
   ArrowDownTrayIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import Spinner from './Spinner';
 
 interface Message {
