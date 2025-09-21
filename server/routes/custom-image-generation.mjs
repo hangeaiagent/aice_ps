@@ -5,11 +5,15 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import Logger from '../utils/logger.js';
 
 // ES模块中__dirname的替代方案
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const router = express.Router();
+
+// 创建日志记录器
+const logger = new Logger('CUSTOM_IMAGE_GEN');
 
 // 配置文件上传
 const upload = multer({
@@ -47,13 +51,15 @@ ensureDirectories();
 
 // 自定义图片生成接口
 router.post('/custom-image-generation', upload.single('image'), async (req, res) => {
-  console.log('🎨 收到自定义图片生成请求');
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  logger.info('收到自定义图片生成请求', { requestId });
   
   try {
     const { prompt } = req.body;
     const imageFile = req.file;
 
     if (!imageFile) {
+      logger.warn('请求缺少图片文件', { requestId });
       return res.status(400).json({ 
         success: false, 
         message: '请上传图片文件' 
@@ -61,33 +67,39 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
     }
 
     if (!prompt || !prompt.trim()) {
+      logger.warn('请求缺少提示词', { requestId, prompt });
       return res.status(400).json({ 
         success: false, 
         message: '请提供图片修改描述' 
       });
     }
 
-    console.log('📋 请求参数:', {
+    const requestParams = {
+      requestId,
       prompt: prompt.trim(),
       filename: imageFile.originalname,
       size: `${(imageFile.size / 1024).toFixed(1)}KB`,
-      mimetype: imageFile.mimetype
-    });
+      mimetype: imageFile.mimetype,
+      tempPath: imageFile.path
+    };
+    logger.info('请求参数验证通过', requestParams);
 
     // Python脚本路径
     const pythonScriptPath = path.resolve(__dirname, '../../backend/custom_prompt_image_generator.py');
     const inputImagePath = path.resolve(imageFile.path);
     const outputDir = path.resolve(__dirname, '../uploads/custom-generated');
     
-    console.log('📂 文件路径:', {
+    const filePaths = {
+      requestId,
       pythonScript: pythonScriptPath,
       inputImage: inputImagePath,
       outputDir: outputDir
-    });
+    };
+    logger.info('文件路径配置', filePaths);
 
     // 检查Python脚本是否存在
     if (!fs.existsSync(pythonScriptPath)) {
-      console.error('❌ Python脚本不存在:', pythonScriptPath);
+      logger.error('Python脚本不存在', { requestId, pythonScriptPath });
       return res.status(500).json({
         success: false,
         message: 'Python脚本文件不存在，请检查backend/custom_prompt_image_generator.py'
@@ -96,22 +108,34 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
 
     // 检查输入图片是否存在
     if (!fs.existsSync(inputImagePath)) {
-      console.error('❌ 输入图片不存在:', inputImagePath);
+      logger.error('输入图片不存在', { requestId, inputImagePath });
       return res.status(500).json({
         success: false,
         message: '上传的图片文件不存在'
       });
     }
 
-    console.log('🐍 启动Python脚本...');
+    // 检查输入图片文件大小
+    const inputStats = fs.statSync(inputImagePath);
+    logger.info('输入图片文件信息', { 
+      requestId, 
+      size: inputStats.size, 
+      sizeKB: `${(inputStats.size / 1024).toFixed(1)}KB` 
+    });
+
+    logger.info('启动Python脚本', { requestId });
 
     // 调用Python脚本
-    const pythonProcess = spawn('python3', [
+    const pythonArgs = [
       pythonScriptPath,
       '--image', inputImagePath,
       '--prompt', prompt.trim(),
       '--output-dir', outputDir
-    ], {
+    ];
+    
+    logger.info('Python脚本参数', { requestId, args: pythonArgs });
+
+    const pythonProcess = spawn('python3', pythonArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, PYTHONPATH: path.dirname(pythonScriptPath) }
     });
@@ -122,27 +146,30 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
     pythonProcess.stdout.on('data', (data) => {
       const output = data.toString();
       pythonOutput += output;
-      console.log('🐍 Python输出:', output.trim());
+      logger.debug('Python标准输出', { requestId, output: output.trim() });
     });
 
     pythonProcess.stderr.on('data', (data) => {
       const error = data.toString();
       pythonError += error;
-      console.error('🐍 Python错误:', error.trim());
+      logger.warn('Python错误输出', { requestId, error: error.trim() });
     });
 
     pythonProcess.on('close', (code) => {
-      console.log(`🐍 Python脚本执行完成，退出代码: ${code}`);
+      logger.info('Python脚本执行完成', { requestId, exitCode: code });
       
       // 清理临时文件
       fs.unlink(inputImagePath, (err) => {
-        if (err) console.error('清理临时文件失败:', err);
-        else console.log('✅ 临时文件已清理');
+        if (err) {
+          logger.warn('清理临时文件失败', { requestId, error: err.message });
+        } else {
+          logger.info('临时文件已清理', { requestId });
+        }
       });
 
       if (code === 0) {
         try {
-          console.log('📄 Python完整输出:', pythonOutput);
+          logger.info('Python完整输出', { requestId, output: pythonOutput });
           
           // 尝试解析JSON结果
           const jsonLines = pythonOutput.split('\n').filter(line => {
@@ -150,8 +177,10 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
             return trimmed.startsWith('{') && trimmed.includes('success');
           });
 
+          logger.info('JSON行过滤结果', { requestId, jsonLinesCount: jsonLines.length, jsonLines });
+
           if (jsonLines.length === 0) {
-            console.error('❌ 未找到有效的JSON输出');
+            logger.error('未找到有效的JSON输出', { requestId, fullOutput: pythonOutput });
             return res.status(500).json({
               success: false,
               message: 'Python脚本未返回有效结果'
@@ -159,58 +188,81 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
           }
 
           const result = JSON.parse(jsonLines[0]);
-          console.log('📊 解析的结果:', result);
+          logger.info('解析的结果', { requestId, result });
 
           if (result.success && result.custom_image) {
+            // 检查生成的图片文件是否存在
+            if (!fs.existsSync(result.custom_image)) {
+              logger.error('生成的图片文件不存在', { requestId, imagePath: result.custom_image });
+              return res.status(500).json({
+                success: false,
+                message: '生成的图片文件不存在'
+              });
+            }
+
+            // 检查生成的图片文件大小
+            const generatedStats = fs.statSync(result.custom_image);
+            logger.info('生成的图片文件信息', { 
+              requestId, 
+              imagePath: result.custom_image,
+              size: generatedStats.size, 
+              sizeKB: `${(generatedStats.size / 1024).toFixed(1)}KB` 
+            });
+
             // 将生成的图片移动到公共目录
             const timestamp = Date.now();
             const filename = `custom_${timestamp}.png`;
             const publicPath = path.join(__dirname, '../uploads/', filename);
             
-            console.log('📁 移动文件:', {
-              from: result.custom_image,
-              to: publicPath
-            });
+            logger.info('准备移动文件', { requestId, from: result.custom_image, to: publicPath });
 
             fs.copyFile(result.custom_image, publicPath, (err) => {
               if (err) {
-                console.error('❌ 移动文件失败:', err);
+                logger.error('移动文件失败', { requestId, error: err.message });
                 return res.status(500).json({
                   success: false,
                   message: '保存生成图片失败'
                 });
               }
 
-              console.log('✅ 图片已保存到:', publicPath);
+              // 验证复制后的文件
+              const copiedStats = fs.statSync(publicPath);
+              logger.info('图片复制完成', { 
+                requestId, 
+                publicPath, 
+                size: copiedStats.size, 
+                sizeKB: `${(copiedStats.size / 1024).toFixed(1)}KB` 
+              });
 
               // 返回成功结果
-              res.json({
+              const successResponse = {
                 success: true,
                 message: '图片定制生成成功',
                 custom_image_url: `/images/${filename}`,
                 professional_prompt: result.professional_prompt || '专业提示词生成中...',
                 processing_time: result.processing_time || 0,
                 user_prompt: prompt.trim()
-              });
+              };
+              
+              logger.info('返回成功响应', { requestId, response: successResponse });
+              res.json(successResponse);
             });
           } else {
-            console.error('❌ Python脚本执行失败:', result);
+            logger.error('Python脚本执行失败', { requestId, result });
             res.status(500).json({
               success: false,
               message: result.message || 'Python脚本执行失败'
             });
           }
         } catch (parseError) {
-          console.error('❌ 解析Python输出失败:', parseError);
-          console.error('原始输出:', pythonOutput);
+          logger.error('解析Python输出失败', { requestId, error: parseError.message, rawOutput: pythonOutput });
           res.status(500).json({
             success: false,
             message: '解析生成结果失败，请检查Python脚本输出格式'
           });
         }
       } else {
-        console.error('❌ Python脚本执行失败，退出代码:', code);
-        console.error('错误输出:', pythonError);
+        logger.error('Python脚本执行失败', { requestId, exitCode: code, errorOutput: pythonError });
         res.status(500).json({
           success: false,
           message: `图片生成失败: ${pythonError || '未知错误'}`
@@ -220,7 +272,7 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
 
     // 处理Python进程错误
     pythonProcess.on('error', (error) => {
-      console.error('❌ 启动Python进程失败:', error);
+      logger.error('启动Python进程失败', { requestId, error: error.message });
       res.status(500).json({
         success: false,
         message: `启动Python进程失败: ${error.message}`
@@ -228,7 +280,7 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
     });
 
   } catch (error) {
-    console.error('❌ 自定义图片生成失败:', error);
+    logger.error('自定义图片生成异常', { requestId: requestId || 'unknown', error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: error.message || '服务器内部错误'
