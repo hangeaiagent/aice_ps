@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  port = 8889
+
+[[redirects]]
+  from = "/api/*"
+  to = "http://localhost:3002/api/:splat"
+  status = 200
+  force = true
+
+[build.environment]
+  GOOGLE_API_KEY = "AIzaSyDyBhOQhpc9zfhrfeGsqLioOXXSycbs8Fk"
+  GOOGLE_CX = "61f2396c8c1b74f0a"

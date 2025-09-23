@@ -30,6 +30,7 @@ import MultiImageFusion from './components/MultiImageFusion';
 import PricingPage from './components/PricingPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import ChatDialog from './components/ChatDialog';
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -113,7 +114,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'multi-image-fusion' | 'pricing' | 'payment-success' | 'payment-cancel';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'multi-image-fusion' | 'pricing' | 'payment-success' | 'payment-cancel' | 'reset-password';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -799,7 +800,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // 检测URL路径，处理支付回调
+  // 检测URL路径，处理支付回调和重置密码
   useEffect(() => {
     const path = window.location.pathname;
     const search = window.location.search;
@@ -812,6 +813,9 @@ const App: React.FC = () => {
       setActiveView('payment-cancel');
       // 清理URL
       window.history.replaceState({}, '', '/');
+    } else if (path === '/reset-password') {
+      setActiveView('reset-password');
+      // 保留URL和查询参数，因为Supabase需要处理token
     }
   }, []);
   
@@ -853,6 +857,13 @@ const App: React.FC = () => {
         case 'payment-cancel': return <PaymentCancelPage 
           onNavigateHome={() => setActiveView('editor')} 
           onNavigateToPricing={() => setActiveView('pricing')} 
+        />;
+        case 'reset-password': return <ResetPasswordPage 
+          onComplete={() => {
+            setActiveView('editor');
+            // 清理URL
+            window.history.replaceState({}, '', '/');
+          }} 
         />;
         case 'editor':
         default:

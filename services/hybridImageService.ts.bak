@@ -34,40 +34,16 @@ const shouldUseServerGeneration = (): boolean => {
 // 将后端返回的结果转换为前端期望的格式
 const convertApiResultToDataUrl = async (result: ImageGenerationResult): Promise<string> => {
   try {
-    let imageUrl = result.imageUrl;
-    
-    // 如果已经是 data URL，直接返回
-    if (imageUrl.startsWith('data:')) {
-      return imageUrl;
+    // 如果返回的是完整的 URL，直接返回
+    if (result.imageUrl.startsWith('http') || result.imageUrl.startsWith('data:')) {
+      return result.imageUrl;
     }
     
     // 如果是相对路径，转换为完整 URL
-    if (!imageUrl.startsWith('http')) {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3002';
-      imageUrl = `${baseUrl}${imageUrl}`;
-    }
-    
-    // 将图片URL转换为data URL
-    console.log('🔄 [ImageConvert] 开始转换图片URL为data URL:', imageUrl);
-    
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`获取图片失败: ${response.status} ${response.statusText}`);
-    }
-    
-    const blob = await response.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('转换图片为data URL失败'));
-      reader.readAsDataURL(blob);
-    });
-    
-    console.log('✅ [ImageConvert] 图片转换成功，data URL长度:', dataUrl.length);
-    return dataUrl;
-    
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3001';
+    return `${baseUrl}${result.imageUrl}`;
   } catch (error) {
-    console.error('❌ [ImageConvert] 转换图片 URL 失败:', error);
+    console.error('转换图片 URL 失败:', error);
     throw error;
   }
 };

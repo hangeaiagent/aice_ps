@@ -49,10 +49,33 @@ const ensureDirectories = () => {
 // 初始化目录
 ensureDirectories();
 
+// 用户认证中间件
+const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // 如果没有认证，设置为匿名用户
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.substring(7);
+    // 这里可以添加JWT验证逻辑
+    // 暂时跳过验证，直接设置用户ID
+    req.user = { id: 'anonymous' };
+    next();
+  } catch (error) {
+    logger.warn('用户认证失败', { error: error.message });
+    req.user = null;
+    next();
+  }
+};
+
 // 自定义图片生成接口
-router.post('/custom-image-generation', upload.single('image'), async (req, res) => {
+router.post('/custom-image-generation', authenticateUser, upload.single('image'), async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  logger.info('收到自定义图片生成请求', { requestId });
+  const userId = req.user ? req.user.id : null;
+  logger.info('收到自定义图片生成请求', { requestId, userId });
   
   try {
     const { prompt } = req.body;
@@ -84,8 +107,8 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
     };
     logger.info('请求参数验证通过', requestParams);
 
-    // Python脚本路径
-    const pythonScriptPath = path.resolve(__dirname, '../../backend/custom_prompt_image_generator.py');
+    // Python脚本路径 - 使用增强版脚本
+    const pythonScriptPath = path.resolve(__dirname, '../../backend/enhanced_image_generator.py');
     const inputImagePath = path.resolve(imageFile.path);
     const outputDir = path.resolve(__dirname, '../uploads/custom-generated');
     
@@ -133,6 +156,11 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
       '--output-dir', outputDir
     ];
     
+    // 如果有用户ID，添加到参数中
+    if (userId) {
+      pythonArgs.push('--user-id', userId);
+    }
+    
     logger.info('Python脚本参数', { requestId, args: pythonArgs });
 
     const pythonProcess = spawn('python3', pythonArgs, {
@@ -171,82 +199,51 @@ router.post('/custom-image-generation', upload.single('image'), async (req, res)
         try {
           logger.info('Python完整输出', { requestId, output: pythonOutput });
           
-          // 尝试解析JSON结果
-          const jsonLines = pythonOutput.split('\n').filter(line => {
-            const trimmed = line.trim();
-            return trimmed.startsWith('{') && trimmed.includes('success');
-          });
-
-          logger.info('JSON行过滤结果', { requestId, jsonLinesCount: jsonLines.length, jsonLines });
-
-          if (jsonLines.length === 0) {
-            logger.error('未找到有效的JSON输出', { requestId, fullOutput: pythonOutput });
+          // 查找JSON结果标记
+          const jsonStartMarker = 'JSON_RESULT_START';
+          const jsonEndMarker = 'JSON_RESULT_END';
+          
+          const startIndex = pythonOutput.indexOf(jsonStartMarker);
+          const endIndex = pythonOutput.indexOf(jsonEndMarker);
+          
+          if (startIndex === -1 || endIndex === -1) {
+            logger.error('未找到JSON标记', { requestId, hasStart: startIndex !== -1, hasEnd: endIndex !== -1 });
             return res.status(500).json({
               success: false,
-              message: 'Python脚本未返回有效结果'
+              message: 'Python脚本未返回有效的JSON结果'
             });
           }
-
-          const result = JSON.parse(jsonLines[0]);
+          
+          const jsonString = pythonOutput.substring(startIndex + jsonStartMarker.length, endIndex).trim();
+          logger.info('提取的JSON字符串', { requestId, jsonLength: jsonString.length, jsonPreview: jsonString.substring(0, 200) });
+          
+          let result;
+          try {
+            result = JSON.parse(jsonString);
+          } catch (parseError) {
+            logger.error('JSON解析失败', { requestId, error: parseError.message, jsonString: jsonString.substring(0, 500) });
+            return res.status(500).json({
+              success: false,
+              message: 'Python脚本返回的结果格式错误'
+            });
+          }
           logger.info('解析的结果', { requestId, result });
 
-          if (result.success && result.custom_image) {
-            // 检查生成的图片文件是否存在
-            if (!fs.existsSync(result.custom_image)) {
-              logger.error('生成的图片文件不存在', { requestId, imagePath: result.custom_image });
-              return res.status(500).json({
-                success: false,
-                message: '生成的图片文件不存在'
-              });
-            }
-
-            // 检查生成的图片文件大小
-            const generatedStats = fs.statSync(result.custom_image);
-            logger.info('生成的图片文件信息', { 
-              requestId, 
-              imagePath: result.custom_image,
-              size: generatedStats.size, 
-              sizeKB: `${(generatedStats.size / 1024).toFixed(1)}KB` 
-            });
-
-            // 将生成的图片移动到公共目录
-            const timestamp = Date.now();
-            const filename = `custom_${timestamp}.png`;
-            const publicPath = path.join(__dirname, '../uploads/', filename);
+          if (result.success) {
+            // 新的Python脚本已经处理了S3上传和数据库记录
+            const successResponse = {
+              success: true,
+              message: result.message || '图片定制生成成功',
+              task_id: result.task_id,
+              custom_image_url: result.generated_image_url || result.custom_image_url,
+              original_image_url: result.original_image_url,
+              professional_prompt: result.professional_prompt || '专业提示词生成中...',
+              processing_time: result.processing_time || 0,
+              user_prompt: prompt.trim()
+            };
             
-            logger.info('准备移动文件', { requestId, from: result.custom_image, to: publicPath });
-
-            fs.copyFile(result.custom_image, publicPath, (err) => {
-              if (err) {
-                logger.error('移动文件失败', { requestId, error: err.message });
-                return res.status(500).json({
-                  success: false,
-                  message: '保存生成图片失败'
-                });
-              }
-
-              // 验证复制后的文件
-              const copiedStats = fs.statSync(publicPath);
-              logger.info('图片复制完成', { 
-                requestId, 
-                publicPath, 
-                size: copiedStats.size, 
-                sizeKB: `${(copiedStats.size / 1024).toFixed(1)}KB` 
-              });
-
-              // 返回成功结果
-              const successResponse = {
-                success: true,
-                message: '图片定制生成成功',
-                custom_image_url: `/images/${filename}`,
-                professional_prompt: result.professional_prompt || '专业提示词生成中...',
-                processing_time: result.processing_time || 0,
-                user_prompt: prompt.trim()
-              };
-              
-              logger.info('返回成功响应', { requestId, response: successResponse });
-              res.json(successResponse);
-            });
+            logger.info('返回成功响应', { requestId, response: successResponse });
+            res.json(successResponse);
           } else {
             logger.error('Python脚本执行失败', { requestId, result });
             res.status(500).json({
