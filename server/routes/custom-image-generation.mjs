@@ -125,7 +125,7 @@ router.post('/custom-image-generation', authenticateUser, upload.single('image')
       logger.error('Python脚本不存在', { requestId, pythonScriptPath });
       return res.status(500).json({
         success: false,
-        message: 'Python脚本文件不存在，请检查backend/custom_prompt_image_generator.py'
+        message: 'Python脚本文件不存在，请检查backend/enhanced_image_generator.py'
       });
     }
 
@@ -287,7 +287,7 @@ router.post('/custom-image-generation', authenticateUser, upload.single('image')
 
 // 健康检查接口
 router.get('/custom-image-generation/health', (req, res) => {
-  const pythonScriptPath = path.resolve(__dirname, '../../backend/custom_prompt_image_generator.py');
+  const pythonScriptPath = path.resolve(__dirname, '../../backend/enhanced_image_generator.py');
   const scriptExists = fs.existsSync(pythonScriptPath);
   
   res.json({
