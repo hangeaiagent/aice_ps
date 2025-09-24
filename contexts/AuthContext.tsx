@@ -9,7 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<{ needsVerification: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   clearError: () => void;
@@ -143,18 +143,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (error) throw error;
       
+      const needsVerification = data.user && !data.session;
+      
       console.log('[AuthContext] ✅ 注册成功', { 
         userId: data.user?.id,
         email: data.user?.email,
-        needsConfirmation: !data.session
+        needsConfirmation: needsVerification
       });
       
       // 如果需要邮箱验证
-      if (data.user && !data.session) {
+      if (needsVerification) {
         setError('注册成功！请检查您的邮箱并点击验证链接。');
       }
       
       // 状态会通过 onAuthStateChange 自动更新
+      return { needsVerification: !!needsVerification };
     } catch (error: any) {
       console.error('[AuthContext] ❌ 注册失败', error);
       const message = getErrorMessage(error);
