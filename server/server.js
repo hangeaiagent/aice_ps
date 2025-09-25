@@ -73,6 +73,10 @@ app.use('/api/task-history', taskHistoryRouter);
 import customImageGenerationRouter from './routes/custom-image-generation.mjs';
 app.use('/api', customImageGenerationRouter);
 
+// 文字转漫画路由
+import textToComicRouter from './routes/text-to-comic.mjs';
+app.use('/api', textToComicRouter);
+
 // 图片代理路由 - 解决CORS问题
 app.get('/api/proxy-image', async (req, res) => {
   try {

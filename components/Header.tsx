@@ -4,6 +4,7 @@
 */
 import React, { useState } from 'react';
 import { SparkleIcon, GitHubIcon, ClockIcon, FilmIcon, CogIcon, QuestionMarkCircleIcon, TemplateLibraryIcon } from './icons';
+import { BookOpenIcon } from '@heroicons/react/24/outline';
 import { type View } from '../App';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from './AuthModal';
@@ -68,6 +69,15 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSetting
                   <TemplateLibraryIcon className="w-6 h-6 text-green-400" />
                   <h1 className="text-xl font-bold tracking-tight font-['Permanent_Marker']">
                     NB 提示词库
+                  </h1>
+                </button>
+
+                <div className="h-6 w-px bg-gray-600"></div>
+
+                <button onClick={() => onViewChange('text-to-comic')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'text-to-comic' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                  <BookOpenIcon className="w-6 h-6 text-orange-400" />
+                  <h1 className="text-xl font-bold tracking-tight">
+                    文字转漫画
                   </h1>
                 </button>
 

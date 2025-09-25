@@ -7,6 +7,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* OpenDyslexic Font Import */
+@import url('https://fonts.cdnfonts.com/css/opendyslexic');
+
+/* Custom font class for dyslexia-friendly reading */
+.font-dyslexic {
+  font-family: 'OpenDyslexic', sans-serif !important;
+  letter-spacing: 0.05em;
+  line-height: 1.8;
+}
+
 :root {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
