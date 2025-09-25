@@ -32,6 +32,7 @@ import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import ChatDialog from './components/ChatDialog';
+import TextToComicPage from './components/TextToComicPage';
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
     const arr = dataurl.split(',');
@@ -114,7 +115,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'multi-image-fusion' | 'pricing' | 'payment-success' | 'payment-cancel' | 'reset-password';
+export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display' | 'task-history' | 'multi-image-fusion' | 'pricing' | 'payment-success' | 'payment-cancel' | 'reset-password' | 'text-to-comic';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -783,6 +784,10 @@ const App: React.FC = () => {
       setActiveView('multi-image-fusion');
     };
 
+    const handleNavigateToTextToComic = () => {
+      setActiveView('text-to-comic');
+    };
+
     const handleOpenChatDialog = () => {
       setIsChatDialogOpen(true);
     };
@@ -790,12 +795,14 @@ const App: React.FC = () => {
     window.addEventListener('navigateToPricing', handleNavigateToPricing);
     window.addEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
     window.addEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
+    window.addEventListener('navigateToTextToComic', handleNavigateToTextToComic);
     window.addEventListener('openChatDialog', handleOpenChatDialog);
     
     return () => {
       window.removeEventListener('navigateToPricing', handleNavigateToPricing);
       window.removeEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
       window.removeEventListener('navigateToMultiImageFusion', handleNavigateToMultiImageFusion);
+      window.removeEventListener('navigateToTextToComic', handleNavigateToTextToComic);
       window.removeEventListener('openChatDialog', handleOpenChatDialog);
     };
   }, []);
@@ -865,6 +872,8 @@ const App: React.FC = () => {
             window.history.replaceState({}, '', '/');
           }} 
         />;
+        case 'text-to-comic':
+            return <TextToComicPage onBack={() => setActiveView('editor')} />;
         case 'editor':
         default:
           return <EditorView 

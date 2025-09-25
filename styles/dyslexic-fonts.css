@@ -1,0 +1,312 @@
+/**
+ * OpenDyslexic 阅读障碍友好字体样式
+ * 为有阅读障碍的用户提供更好的阅读体验
+ */
+
+/* 引入 OpenDyslexic 字体 */
+@import url('https://fonts.googleapis.com/css2?family=OpenDyslexic:wght@400;700&display=swap');
+
+/* 备用字体（如果OpenDyslexic不可用） */
+@font-face {
+  font-family: 'OpenDyslexic-Fallback';
+  src: local('Comic Sans MS'), local('Trebuchet MS'), local('Verdana');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* OpenDyslexic 字体基础样式 */
+.dyslexic-font {
+  font-family: 'OpenDyslexic', 'OpenDyslexic-Fallback', 'Comic Sans MS', 'Trebuchet MS', sans-serif !important;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  word-spacing: 0.1em;
+}
+
+/* 不同大小的OpenDyslexic字体 */
+.dyslexic-font-small {
+  font-size: 14px;
+}
+
+.dyslexic-font-medium {
+  font-size: 16px;
+}
+
+.dyslexic-font-large {
+  font-size: 18px;
+}
+
+.dyslexic-font-xlarge {
+  font-size: 20px;
+}
+
+/* 粗体版本 */
+.dyslexic-font-bold {
+  font-family: 'OpenDyslexic', 'OpenDyslexic-Fallback', 'Comic Sans MS', 'Trebuchet MS', sans-serif !important;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  word-spacing: 0.1em;
+}
+
+/* 漫画文本框专用样式 */
+.comic-text-box {
+  font-family: 'OpenDyslexic', 'OpenDyslexic-Fallback', 'Comic Sans MS', sans-serif;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: absolute;
+  z-index: 10;
+  max-width: 200px;
+  text-align: center;
+  word-wrap: break-word;
+}
+
+/* 对话框样式 */
+.comic-text-box.dialogue {
+  background-color: #ffffff;
+  border-color: #333333;
+}
+
+/* 对话框尾巴（指向说话者） */
+.comic-text-box.dialogue::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #ffffff;
+}
+
+.comic-text-box.dialogue::before {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 12px solid #333333;
+}
+
+/* 旁白文本框样式 */
+.comic-text-box.narration {
+  background-color: #f0f8ff;
+  border-color: #4a90e2;
+  border-style: dashed;
+}
+
+/* 思考泡泡样式 */
+.comic-text-box.thought {
+  background-color: #f9f9f9;
+  border-radius: 50px;
+  border-color: #999999;
+  border-style: dotted;
+}
+
+/* 思考泡泡的小圆点 */
+.comic-text-box.thought::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 20%;
+  width: 8px;
+  height: 8px;
+  background-color: #f9f9f9;
+  border: 2px dotted #999999;
+  border-radius: 50%;
+}
+
+.comic-text-box.thought::before {
+  content: '';
+  position: absolute;
+  bottom: -25px;
+  left: 15%;
+  width: 5px;
+  height: 5px;
+  background-color: #f9f9f9;
+  border: 1px dotted #999999;
+  border-radius: 50%;
+}
+
+/* 响应式字体大小 */
+@media (max-width: 768px) {
+  .comic-text-box {
+    font-size: 14px;
+    max-width: 150px;
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .comic-text-box {
+    font-size: 12px;
+    max-width: 120px;
+    padding: 4px 8px;
+  }
+}
+
+/* 高对比度模式 */
+.high-contrast .comic-text-box {
+  background-color: #000000;
+  color: #ffffff;
+  border-color: #ffffff;
+  border-width: 3px;
+}
+
+.high-contrast .comic-text-box.dialogue::after {
+  border-top-color: #000000;
+}
+
+.high-contrast .comic-text-box.dialogue::before {
+  border-top-color: #ffffff;
+}
+
+/* 大字体模式 */
+.large-text .comic-text-box {
+  font-size: 18px;
+  padding: 12px 16px;
+  max-width: 250px;
+}
+
+@media (max-width: 768px) {
+  .large-text .comic-text-box {
+    font-size: 16px;
+    max-width: 200px;
+  }
+}
+
+/* 动画效果 */
+.comic-text-box.animate-in {
+  animation: textBoxFadeIn 0.5s ease-out;
+}
+
+@keyframes textBoxFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 可编辑文本框样式 */
+.comic-text-box.editable {
+  cursor: text;
+  border-style: solid;
+  border-color: #4a90e2;
+}
+
+.comic-text-box.editable:hover {
+  border-color: #2171b5;
+  box-shadow: 0 0 0 2px rgba(65, 113, 181, 0.2);
+}
+
+.comic-text-box.editable:focus {
+  outline: none;
+  border-color: #1f5582;
+  box-shadow: 0 0 0 3px rgba(31, 85, 130, 0.3);
+}
+
+/* 字体切换按钮样式 */
+.font-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.font-toggle-button:hover {
+  background-color: #2171b5;
+  transform: translateY(-1px);
+}
+
+.font-toggle-button.active {
+  background-color: #1f5582;
+}
+
+.font-toggle-button .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* 字体预览样式 */
+.font-preview {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.font-preview h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.font-preview .sample-text {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #555;
+}
+
+.font-preview .sample-text.dyslexic {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif;
+}
+
+.font-preview .sample-text.normal {
+  font-family: 'Arial', 'Helvetica', sans-serif;
+}
+
+/* 辅助功能增强 */
+.screen-reader-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 焦点可见性增强 */
+.comic-text-box:focus-visible,
+.font-toggle-button:focus-visible {
+  outline: 2px solid #4a90e2;
+  outline-offset: 2px;
+}
+
+/* 减少动画（尊重用户偏好） */
+@media (prefers-reduced-motion: reduce) {
+  .comic-text-box.animate-in {
+    animation: none;
+  }
+  
+  .font-toggle-button {
+    transition: none;
+  }
+  
+  .font-toggle-button:hover {
+    transform: none;
+  }
+}
