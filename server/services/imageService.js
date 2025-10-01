@@ -137,10 +137,24 @@ class ImageGenerationService {
           const result = await this.saveBase64Image(base64Data);
           return result;
         }
+        
+        // 记录文本响应用于调试
+        if (part.text) {
+          console.log(`[${action}] 模型返回了文本:`, part.text.substring(0, 200));
+        }
       }
       
       if (candidate.content.parts[0]?.text) {
-        throw new Error("Model responded with text instead of an image. The prompt may have been blocked.");
+        const finishReason = candidate?.finishReason;
+        let errorMsg = "模型返回了文本而不是图片。";
+        
+        if (finishReason === 'SAFETY') {
+          errorMsg += " 提示词可能被安全过滤器拦截，请尝试使用更简单的描述。";
+        } else {
+          errorMsg += " 请尝试简化提示词或使用不同的描述方式。";
+        }
+        
+        throw new Error(errorMsg);
       }
 
       throw new Error('AI 未能返回预期的图片结果。');
@@ -272,20 +286,37 @@ class ImageGenerationService {
         )
       );
 
-      let fullPrompt = `Fuse the images. The main image is the one I'm editing. `;
+      // 构建更明确的图片融合提示词
+      let fullPrompt = `You are an expert image editor. Your task is to generate a NEW image by fusing/blending the provided images.
 
-      sourceImageParts.forEach(part => {
-        fullPrompt += `Source image ${part.index} is provided. `;
-      });
+IMPORTANT: You MUST generate an image, not text.
+
+Images provided:
+- Main image (first image)`;
+
+      if (sourceImages.length > 0) {
+        sourceImageParts.forEach(part => {
+          fullPrompt += `\n- Source image ${part.index}`;
+        });
+      }
       
-      fullPrompt += `Instructions: ${prompt}`;
+      fullPrompt += `\n\nUser instructions: ${prompt}\n\n`;
+      fullPrompt += `Generate a creative fusion of these images following the user's instructions. `;
+      fullPrompt += `Output: A single fused/blended image combining elements from all provided images.`;
       
       const textPart = { text: fullPrompt };
       const allParts = [mainImagePart, ...sourceImageParts.map(p => ({ inlineData: p.inlineData })), textPart];
       
+      console.log('融合图片请求:', {
+        mainImageSize: mainImage.size,
+        sourceImagesCount: sourceImages.length,
+        promptLength: fullPrompt.length
+      });
+      
       return await this.callImageEditingModel(allParts, '合成');
 
     } catch (e) {
+      console.error('融合图片失败:', e);
       throw this.handleApiError(e, '合成');
     }
   }
