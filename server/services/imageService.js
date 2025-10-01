@@ -121,7 +121,9 @@ class ImageGenerationService {
         model: 'gemini-2.5-flash-image-preview',
         contents: { parts: parts },
         config: {
-          responseModalities: ['IMAGE', 'TEXT'],
+          responseModalities: ['IMAGE'],  // 只要求图片输出
+          temperature: 0.8,  // 增加创意性
+          candidateCount: 1,
         },
       });
 
@@ -365,24 +367,41 @@ class ImageGenerationService {
       );
 
       console.log('🔄 步骤3: 构建提示词...');
-      // 构建更明确的图片融合提示词
-      let fullPrompt = `You are an expert image editor. Your task is to generate a NEW image by fusing/blending the provided images.
+      
+      // 分析用户提示词，提取关键操作
+      const userPrompt = prompt.replace(/\[使用附件图片\d+\]/g, '').trim();
+      console.log('📝 用户原始提示词:', userPrompt);
+      
+      // 构建更强化的融合提示词
+      let fullPrompt = `You are a professional photo editor specializing in image fusion and composition. 
 
-IMPORTANT: You MUST generate an image, not text.
+CRITICAL INSTRUCTIONS:
+1. You MUST create a NEW, DIFFERENT image by combining elements from ALL provided images
+2. DO NOT simply return the original main image unchanged
+3. You MUST generate a visually modified result that shows clear fusion/blending
 
-Images provided:
-- Main image (first image): ${mainImage.originalname}`;
+Images to work with:
+- PRIMARY IMAGE (base): ${mainImage.originalname}`;
 
       if (sourceImages.length > 0) {
         sourceImageParts.forEach(part => {
           const sourceImg = sourceImages[part.index - 1];
-          fullPrompt += `\n- Source image ${part.index}: ${sourceImg.originalname}`;
+          fullPrompt += `\n- REFERENCE IMAGE ${part.index}: ${sourceImg.originalname} - Extract elements from this image`;
         });
       }
       
-      fullPrompt += `\n\nUser instructions: ${prompt}\n\n`;
-      fullPrompt += `Generate a creative fusion of these images following the user's instructions. `;
-      fullPrompt += `Output: A single fused/blended image combining elements from all provided images.`;
+      fullPrompt += `\n\nSPECIFIC TASK: ${userPrompt}
+
+EXECUTION REQUIREMENTS:
+- Take the PRIMARY IMAGE as your base composition
+- Extract specific elements, styles, colors, or features from the REFERENCE IMAGE(s)
+- Apply/blend/fuse these extracted elements onto the primary image
+- Ensure the result is visually DIFFERENT from the original primary image
+- The output must show clear evidence of fusion/combination
+
+IMPORTANT: The result MUST be a modified version that combines elements from both images. Do not return the original primary image unchanged.`;
+      
+      console.log('🎯 强化后的提示词长度:', fullPrompt.length);
       
       console.log('✅ 提示词构建完成:', {
         totalLength: fullPrompt.length,
