@@ -6,8 +6,8 @@ import {
   SparklesIcon, 
   ArrowRightIcon,
   ArrowLeftIcon,
-  DownloadIcon,
-  RefreshIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
   XMarkIcon,
   DocumentTextIcon,
   PhotoIcon
@@ -376,7 +376,7 @@ const TextToComicPage: React.FC = () => {
                   onClick={handleExportComic}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all flex items-center gap-2"
                 >
-                  <DownloadIcon className="w-5 h-5" />
+                  <ArrowDownTrayIcon className="w-5 h-5" />
                   导出
                 </button>
                 <button
@@ -417,7 +417,7 @@ const TextToComicPage: React.FC = () => {
                           onClick={() => handleRegeneratePanel(currentPanelIndex)}
                           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all flex items-center gap-2"
                         >
-                          <RefreshIcon className="w-5 h-5" />
+                          <ArrowPathIcon className="w-5 h-5" />
                           重新生成
                         </button>
                       </div>
@@ -485,7 +485,7 @@ const TextToComicPage: React.FC = () => {
                           onClick={() => handleRegeneratePanel(index)}
                           className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
                         >
-                          <RefreshIcon className="w-5 h-5" />
+                          <ArrowPathIcon className="w-5 h-5" />
                         </button>
                       </div>
                     )}
