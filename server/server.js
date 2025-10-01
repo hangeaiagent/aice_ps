@@ -152,21 +152,41 @@ app.post('/api/generate-image', async (req, res) => {
   }
 });
 
-// 图片编辑接口
-app.post('/api/edit-image', upload.single('image'), async (req, res) => {
+// 图片编辑接口 - 支持单文件和多文件上传
+const uploadMiddleware = (req, res, next) => {
+  const { type } = req.body;
+  
+  // 对于融合类型，使用多文件上传
+  if (type === 'fusion') {
+    return upload.array('images', 10)(req, res, next);
+  }
+  
+  // 其他类型使用单文件上传
+  return upload.single('image')(req, res, next);
+};
+
+app.post('/api/edit-image', uploadMiddleware, async (req, res) => {
   try {
     const { prompt, hotspot, type = 'edit' } = req.body;
-    const imageFile = req.file;
+    
+    // 根据上传类型获取文件
+    const imageFile = req.file || (req.files && req.files[0]);
     
     if (!imageFile) {
       return res.status(400).json({ error: '缺少图片文件' });
     }
     
-    if (!prompt) {
+    if (!prompt && type !== 'remove-background') {
       return res.status(400).json({ error: '缺少 prompt 参数' });
     }
 
-    console.log('图片编辑请求:', { prompt, hotspot, type, filename: imageFile.originalname });
+    console.log('图片编辑请求:', { 
+      prompt, 
+      hotspot, 
+      type, 
+      filename: imageFile.originalname,
+      filesCount: req.files ? req.files.length : 1
+    });
     
     let result;
     const parsedHotspot = hotspot ? JSON.parse(hotspot) : null;
@@ -192,8 +212,17 @@ app.post('/api/edit-image', upload.single('image'), async (req, res) => {
         break;
       case 'fusion':
         // 处理多图片融合
-        const sourceFiles = req.files ? req.files.slice(1) : [];
-        result = await imageGenerationService.generateFusedImage(imageFile, sourceFiles, prompt);
+        if (!req.files || req.files.length < 1) {
+          return res.status(400).json({ error: '融合功能需要至少1张图片' });
+        }
+        const mainImage = req.files[0];
+        const sourceImages = req.files.slice(1);
+        console.log('融合图片处理:', {
+          mainImage: mainImage.originalname,
+          sourceImages: sourceImages.map(f => f.originalname),
+          prompt
+        });
+        result = await imageGenerationService.generateFusedImage(mainImage, sourceImages, prompt);
         break;
       case 'decade':
         result = await imageGenerationService.generateDecadeImage(imageFile, prompt);

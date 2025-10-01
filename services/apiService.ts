@@ -184,12 +184,23 @@ class ApiService {
 
   async generateFusedImage(mainImage: File, sourceImages: File[], prompt: string): Promise<ImageGenerationResult> {
     const formData = new FormData();
-    formData.append('image', mainImage);
-    sourceImages.forEach((file, index) => {
-      formData.append(`sourceImage${index}`, file);
-    });
-    formData.append('prompt', prompt);
+    
+    // 添加type参数到formData，这样uploadMiddleware可以识别
     formData.append('type', 'fusion');
+    formData.append('prompt', prompt);
+    
+    // 按顺序添加所有图片（主图片在前，附件图片在后）
+    formData.append('images', mainImage);
+    sourceImages.forEach((file) => {
+      formData.append('images', file);
+    });
+
+    console.log('发送融合请求:', {
+      mainImage: mainImage.name,
+      sourceImagesCount: sourceImages.length,
+      sourceImages: sourceImages.map(f => f.name),
+      prompt
+    });
 
     const response = await this.uploadRequest<ImageGenerationResult>('/edit-image', formData);
     return response;
