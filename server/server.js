@@ -152,41 +152,45 @@ app.post('/api/generate-image', async (req, res) => {
   }
 });
 
-// 图片编辑接口 - 支持单文件和多文件上传
-const uploadMiddleware = (req, res, next) => {
-  const { type } = req.body;
-  
-  // 对于融合类型，使用多文件上传
-  if (type === 'fusion') {
-    return upload.array('images', 10)(req, res, next);
-  }
-  
-  // 其他类型使用单文件上传
-  return upload.single('image')(req, res, next);
-};
+// 图片编辑接口 - 使用灵活的文件上传处理
+// 使用 any() 接受任意字段的文件，然后在处理逻辑中区分
+const uploadAny = upload.any();
 
-app.post('/api/edit-image', uploadMiddleware, async (req, res) => {
+app.post('/api/edit-image', uploadAny, async (req, res) => {
   try {
     const { prompt, hotspot, type = 'edit' } = req.body;
     
-    // 根据上传类型获取文件
-    const imageFile = req.file || (req.files && req.files[0]);
+    log('info', '收到图片编辑请求', { type, prompt: prompt?.substring(0, 50), filesCount: req.files?.length || 0 });
     
-    if (!imageFile) {
-      return res.status(400).json({ error: '缺少图片文件' });
+    // 根据type获取文件
+    let imageFile;
+    let sourceImages = [];
+    
+    if (type === 'fusion') {
+      // 融合类型：所有文件都通过'images'字段上传
+      const allFiles = req.files?.filter(f => f.fieldname === 'images') || [];
+      if (allFiles.length < 1) {
+        return res.status(400).json({ error: '融合功能需要至少1张图片' });
+      }
+      imageFile = allFiles[0];
+      sourceImages = allFiles.slice(1);
+      
+      log('info', '融合图片请求详情', {
+        mainImage: imageFile.originalname,
+        sourceImagesCount: sourceImages.length,
+        sourceImages: sourceImages.map(f => f.originalname)
+      });
+    } else {
+      // 其他类型：通过'image'字段上传单个文件
+      imageFile = req.files?.find(f => f.fieldname === 'image');
+      if (!imageFile) {
+        return res.status(400).json({ error: '缺少图片文件' });
+      }
     }
     
     if (!prompt && type !== 'remove-background') {
       return res.status(400).json({ error: '缺少 prompt 参数' });
     }
-
-    console.log('图片编辑请求:', { 
-      prompt, 
-      hotspot, 
-      type, 
-      filename: imageFile.originalname,
-      filesCount: req.files ? req.files.length : 1
-    });
     
     let result;
     const parsedHotspot = hotspot ? JSON.parse(hotspot) : null;
@@ -211,18 +215,7 @@ app.post('/api/edit-image', uploadMiddleware, async (req, res) => {
         result = await imageGenerationService.removeBackgroundImage(imageFile);
         break;
       case 'fusion':
-        // 处理多图片融合
-        if (!req.files || req.files.length < 1) {
-          return res.status(400).json({ error: '融合功能需要至少1张图片' });
-        }
-        const mainImage = req.files[0];
-        const sourceImages = req.files.slice(1);
-        console.log('融合图片处理:', {
-          mainImage: mainImage.originalname,
-          sourceImages: sourceImages.map(f => f.originalname),
-          prompt
-        });
-        result = await imageGenerationService.generateFusedImage(mainImage, sourceImages, prompt);
+        result = await imageGenerationService.generateFusedImage(imageFile, sourceImages, prompt);
         break;
       case 'decade':
         result = await imageGenerationService.generateDecadeImage(imageFile, prompt);
