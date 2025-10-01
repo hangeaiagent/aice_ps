@@ -105,7 +105,17 @@ class ImageGenerationService {
 
   // 调用图片编辑模型
   async callImageEditingModel(parts, action) {
+    const apiCallId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    
     try {
+      console.log(`🔄 [${apiCallId}] 调用Gemini API - ${action}`);
+      console.log(`📊 [${apiCallId}] API请求详情:`, {
+        model: 'gemini-2.5-flash-image-preview',
+        partsCount: parts.length,
+        partsTypes: parts.map(p => p.inlineData ? 'image' : 'text'),
+        action: action
+      });
+
       const ai = this.getGoogleAI();
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
@@ -115,11 +125,26 @@ class ImageGenerationService {
         },
       });
 
+      console.log(`📥 [${apiCallId}] API响应接收完成`);
+      
       const candidate = response.candidates?.[0];
+      console.log(`🔍 [${apiCallId}] 响应分析:`, {
+        candidatesCount: response.candidates?.length || 0,
+        hasCandidate: !!candidate,
+        finishReason: candidate?.finishReason,
+        contentPartsCount: candidate?.content?.parts?.length || 0,
+        safetyRatings: candidate?.safetyRatings?.map(r => ({ category: r.category, probability: r.probability, blocked: r.blocked }))
+      });
 
       if (!candidate || !candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
         const finishReason = candidate?.finishReason;
         const safetyRatings = candidate?.safetyRatings;
+        
+        console.error(`❌ [${apiCallId}] API响应无效:`, {
+          finishReason,
+          safetyRatings,
+          candidate: candidate ? 'exists but invalid' : 'missing'
+        });
         
         let detailedError = `AI did not return a valid result.`;
         if (finishReason) {
@@ -131,16 +156,33 @@ class ImageGenerationService {
         throw new Error(detailedError);
       }
 
-      for (const part of candidate.content.parts) {
+      console.log(`🔍 [${apiCallId}] 解析响应内容...`);
+      for (const [index, part] of candidate.content.parts.entries()) {
+        console.log(`📝 [${apiCallId}] Part ${index + 1}:`, {
+          hasInlineData: !!part.inlineData,
+          hasText: !!part.text,
+          inlineDataType: part.inlineData?.mimeType,
+          textLength: part.text?.length
+        });
+        
         if (part.inlineData) {
+          console.log(`✅ [${apiCallId}] 找到图片数据，保存中...`);
           const base64Data = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
           const result = await this.saveBase64Image(base64Data);
+          console.log(`🎉 [${apiCallId}] 图片保存成功:`, {
+            imageUrl: result.imageUrl,
+            filename: result.filename
+          });
           return result;
         }
         
         // 记录文本响应用于调试
         if (part.text) {
-          console.log(`[${action}] 模型返回了文本:`, part.text.substring(0, 200));
+          console.log(`⚠️ [${apiCallId}] 模型返回了文本而不是图片:`, {
+            textPreview: part.text.substring(0, 200),
+            fullTextLength: part.text.length,
+            finishReason: candidate?.finishReason
+          });
         }
       }
       
@@ -154,11 +196,18 @@ class ImageGenerationService {
           errorMsg += " 请尝试简化提示词或使用不同的描述方式。";
         }
         
+        console.error(`❌ [${apiCallId}] ${errorMsg}`);
         throw new Error(errorMsg);
       }
 
+      console.error(`❌ [${apiCallId}] AI未返回预期结果`);
       throw new Error('AI 未能返回预期的图片结果。');
     } catch (e) {
+      console.error(`💥 [${apiCallId}] API调用异常:`, {
+        error: e.message,
+        stack: e.stack?.split('\n').slice(0, 5)
+      });
+      
       if (e instanceof Error && (e.message.includes("Model responded with text") || e.message.includes("AI did not return a valid result"))) {
         throw e;
       }
@@ -277,26 +326,57 @@ class ImageGenerationService {
 
   // 生成融合图片
   async generateFusedImage(mainImage, sourceImages, prompt) {
+    const fusionId = `fusion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     try {
+      console.log(`\n========== 图片融合开始 [${fusionId}] ==========`);
+      console.log('📥 输入参数:', {
+        mainImageName: mainImage.originalname,
+        mainImageSize: mainImage.size,
+        mainImageType: mainImage.mimetype,
+        sourceImagesCount: sourceImages.length,
+        sourceImages: sourceImages.map(f => ({
+          name: f.originalname,
+          size: f.size,
+          type: f.mimetype
+        })),
+        promptLength: prompt.length,
+        prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : '')
+      });
+
+      console.log('🔄 步骤1: 处理主图片...');
       const mainImagePart = await this.fileToGenerativePart(mainImage);
+      console.log('✅ 主图片处理完成:', {
+        mimeType: mainImagePart.inlineData.mimeType,
+        dataLength: mainImagePart.inlineData.data.length
+      });
       
+      console.log('🔄 步骤2: 处理附件图片...');
       const sourceImageParts = await Promise.all(
-        sourceImages.map((file, index) => 
-          this.fileToGenerativePart(file).then(part => ({ ...part, index: index + 1 }))
-        )
+        sourceImages.map(async (file, index) => {
+          console.log(`  处理附件图片 ${index + 1}: ${file.originalname}`);
+          const part = await this.fileToGenerativePart(file);
+          console.log(`  ✅ 附件图片 ${index + 1} 处理完成:`, {
+            mimeType: part.inlineData.mimeType,
+            dataLength: part.inlineData.data.length
+          });
+          return { ...part, index: index + 1 };
+        })
       );
 
+      console.log('🔄 步骤3: 构建提示词...');
       // 构建更明确的图片融合提示词
       let fullPrompt = `You are an expert image editor. Your task is to generate a NEW image by fusing/blending the provided images.
 
 IMPORTANT: You MUST generate an image, not text.
 
 Images provided:
-- Main image (first image)`;
+- Main image (first image): ${mainImage.originalname}`;
 
       if (sourceImages.length > 0) {
         sourceImageParts.forEach(part => {
-          fullPrompt += `\n- Source image ${part.index}`;
+          const sourceImg = sourceImages[part.index - 1];
+          fullPrompt += `\n- Source image ${part.index}: ${sourceImg.originalname}`;
         });
       }
       
@@ -304,19 +384,39 @@ Images provided:
       fullPrompt += `Generate a creative fusion of these images following the user's instructions. `;
       fullPrompt += `Output: A single fused/blended image combining elements from all provided images.`;
       
+      console.log('✅ 提示词构建完成:', {
+        totalLength: fullPrompt.length,
+        fullPrompt: fullPrompt
+      });
+      
       const textPart = { text: fullPrompt };
       const allParts = [mainImagePart, ...sourceImageParts.map(p => ({ inlineData: p.inlineData })), textPart];
       
-      console.log('融合图片请求:', {
-        mainImageSize: mainImage.size,
-        sourceImagesCount: sourceImages.length,
-        promptLength: fullPrompt.length
+      console.log('🔄 步骤4: 准备API调用...');
+      console.log('📦 API调用参数:', {
+        totalParts: allParts.length,
+        imagePartsCount: allParts.length - 1, // 减去文本部分
+        textPartLength: textPart.text.length
       });
       
-      return await this.callImageEditingModel(allParts, '合成');
+      console.log('🚀 步骤5: 调用Google Gemini API...');
+      const result = await this.callImageEditingModel(allParts, '合成');
+      
+      console.log('✅ 融合完成!', {
+        fusionId,
+        resultImageUrl: result.imageUrl,
+        resultFilename: result.filename
+      });
+      console.log(`========== 图片融合结束 [${fusionId}] ==========\n`);
+      
+      return result;
 
     } catch (e) {
-      console.error('融合图片失败:', e);
+      console.error(`❌ 融合失败 [${fusionId}]:`, {
+        error: e.message,
+        stack: e.stack
+      });
+      console.log(`========== 图片融合失败 [${fusionId}] ==========\n`);
       throw this.handleApiError(e, '合成');
     }
   }
