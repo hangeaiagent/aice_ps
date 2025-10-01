@@ -32,7 +32,7 @@ import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentCancelPage from './components/PaymentCancelPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 import ChatDialog from './components/ChatDialog';
-import TextToComicPage from './components/TextToComicPage';
+import SimpleTextToComicPage from './components/SimpleTextToComicPage';
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
     const arr = dataurl.split(',');
@@ -422,8 +422,17 @@ const EditorView: React.FC<{
   };
   
   const handleApplyFusion = (sourceImages: File[], prompt: string) => {
+    // 智能合成：将第一个素材图作为主图片，其余作为附件图片
+    if (sourceImages.length === 0) {
+      setError('请至少上传一张素材图');
+      return;
+    }
+    
+    const mainImage = sourceImages[0];
+    const attachmentImages = sourceImages.slice(1);
+    
     setLastAction({ type: 'fusion', prompt, sourceImages });
-    runGenerativeTask(() => hybridImageService.generateFusedImage(currentImageFile, sourceImages, prompt));
+    runGenerativeTask(() => hybridImageService.generateFusedImage(mainImage, attachmentImages, prompt));
   };
 
   const handleApplyTexture = (prompt: string) => {
@@ -733,7 +742,7 @@ const EditorView: React.FC<{
 
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<View>('editor');
+  const [activeView, setActiveView] = useState<View>('text-to-comic');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);  const [notification, setNotification] = useState<string | null>(null);
@@ -791,6 +800,7 @@ const App: React.FC = () => {
     const handleNavigateToTextToComic = () => {
       setActiveView('text-to-comic');
     };
+
 
     window.addEventListener('navigateToPricing', handleNavigateToPricing);
     window.addEventListener('navigateToTaskHistory', handleNavigateToTaskHistory);
@@ -872,7 +882,7 @@ const App: React.FC = () => {
             window.history.replaceState({}, '', '/');
           }} 
         />;
-        case 'text-to-comic': return <TextToComicPage />;
+        case 'text-to-comic': return <SimpleTextToComicPage />;
         case 'editor':
         default:
           return <EditorView 

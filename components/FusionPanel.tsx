@@ -93,7 +93,7 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
             {!imageSrc ? (
                 <div className="flex flex-col items-center justify-center text-center text-gray-400 py-8 h-full">
                     <UploadIcon className="w-8 h-8 mb-2" />
-                    <p className="font-semibold">上传素材图 {id}</p>
+                    <p className="font-semibold">{id === 1 ? '主图片' : '素材图片'}</p>
                     <p className="text-xs">拖放文件或 <span className="text-blue-400 font-semibold cursor-pointer" onClick={() => fileInputRef.current?.click()}>点击浏览</span></p>
                     <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e.target.files)} />
                 </div>
@@ -116,7 +116,7 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
   return (
     <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex flex-col items-center gap-4 animate-fade-in backdrop-blur-sm">
       <h3 className="text-lg font-semibold text-gray-300">智能合成</h3>
-      <p className="text-sm text-gray-400 -mt-2">上传一或两张素材图，然后描述如何将它们结合。</p>
+      <p className="text-sm text-gray-400 -mt-2">上传1-2张图片进行融合。第一张图片将作为主图，第二张图片作为素材图。</p>
 
       <div className="w-full flex flex-col md:flex-row gap-4">
         <ImageUploader id={1} file={sourceImageFile1} setFile={setSourceImageFile1} fileInputRef={fileInputRef1} />
@@ -128,7 +128,7 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
           type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="例如，“把图1的人物放到主图中，并用图2的风格渲染”"
+          placeholder="例如：将图1中的白色上衣换成图2中的蓝色连衣裙"
           className="flex-grow bg-gray-800 border border-gray-600 text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full disabled:cursor-not-allowed disabled:opacity-60 text-base"
           disabled={isLoading || (!sourceImageFile1 && !sourceImageFile2)}
         />
