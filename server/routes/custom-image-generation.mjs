@@ -285,19 +285,280 @@ router.post('/custom-image-generation', authenticateUser, upload.single('image')
   }
 });
 
+// 纯文本到图片生成接口（用于漫画生成）
+router.post('/custom-image-generation/generate', authenticateUser, async (req, res) => {
+  const requestId = `txt2img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const userId = req.user ? req.user.id : null;
+  
+  console.log(`[${requestId}] 🖼️ 文本生成图片请求开始`, {
+    API接口: '/api/custom-image-generation/generate',
+    用户ID: userId,
+    时间戳: new Date().toISOString()
+  });
+  
+  logger.info('收到文本到图片生成请求', { requestId, userId });
+  
+  try {
+    const { 
+      prompt, 
+      negative_prompt = '', 
+      width = 512, 
+      height = 512, 
+      num_inference_steps = 20, 
+      guidance_scale = 7.5, 
+      seed = -1 
+    } = req.body;
+
+    if (!prompt || !prompt.trim()) {
+      console.error(`[${requestId}] ❌ 请求参数错误: 缺少提示词`, { prompt });
+      logger.warn('请求缺少提示词', { requestId, prompt });
+      return res.status(400).json({ 
+        success: false, 
+        message: '请提供图片生成描述',
+        requestId 
+      });
+    }
+
+    const requestParams = {
+      requestId,
+      prompt: prompt.trim(),
+      negative_prompt,
+      width,
+      height,
+      num_inference_steps,
+      guidance_scale,
+      seed
+    };
+    
+    console.log(`[${requestId}] ✅ 请求参数验证通过`, {
+      提示词长度: prompt.trim().length,
+      负面提示词长度: negative_prompt.length,
+      图片尺寸: `${width}x${height}`,
+      推理步数: num_inference_steps,
+      引导强度: guidance_scale,
+      随机种子: seed,
+      提示词预览: prompt.trim().substring(0, 100) + (prompt.trim().length > 100 ? '...' : '')
+    });
+    
+    logger.info('文本生成请求参数验证通过', requestParams);
+
+    // Python脚本路径 - 使用专门的文本生成图片脚本
+    const pythonScriptPath = path.resolve(__dirname, '../../backend/text_to_image_generator.py');
+    const outputDir = path.resolve(__dirname, '../uploads/custom-generated');
+    
+    console.log(`[${requestId}] 📁 文件路径配置`, {
+      Python脚本: pythonScriptPath,
+      输出目录: outputDir,
+      脚本存在: fs.existsSync(pythonScriptPath),
+      输出目录存在: fs.existsSync(outputDir)
+    });
+    
+    // 检查Python脚本是否存在
+    if (!fs.existsSync(pythonScriptPath)) {
+      console.error(`[${requestId}] ❌ Python脚本不存在`, { pythonScriptPath });
+      logger.error('Python脚本不存在', { requestId, pythonScriptPath });
+      return res.status(500).json({
+        success: false,
+        message: 'AI图片生成脚本不存在，请检查backend/text_to_image_generator.py文件',
+        requestId,
+        scriptPath: pythonScriptPath
+      });
+    }
+
+    // 生成输出文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const outputFilename = `comic_${timestamp}_${requestId.slice(-6)}.jpg`;
+    const outputPath = path.join(outputDir, outputFilename);
+
+    console.log(`[${requestId}] 🚀 准备执行Python脚本`, { 
+      脚本路径: pythonScriptPath, 
+      输出路径: outputPath,
+      输出文件名: outputFilename
+    });
+    
+    logger.info('开始执行Python脚本', { 
+      requestId, 
+      pythonScriptPath, 
+      outputPath,
+      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : '')
+    });
+
+    // 构建Python命令参数（纯文本生成模式）
+    const pythonArgs = [
+      pythonScriptPath,
+      '--mode', 'text2img',  // 纯文本生成模式
+      '--prompt', prompt,
+      '--output', outputPath,
+      '--width', width.toString(),
+      '--height', height.toString(),
+      '--steps', num_inference_steps.toString(),
+      '--guidance', guidance_scale.toString()
+    ];
+
+    if (negative_prompt) {
+      pythonArgs.push('--negative_prompt', negative_prompt);
+    }
+    
+    if (seed > 0) {
+      pythonArgs.push('--seed', seed.toString());
+    }
+    
+    console.log(`[${requestId}] 📋 Python脚本参数`, {
+      命令: 'python3',
+      参数: pythonArgs.map((arg, i) => i % 2 === 0 ? arg : (arg.length > 50 ? arg.substring(0, 50) + '...' : arg))
+    });
+
+    // 执行Python脚本
+    const pythonProcess = spawn('python3', pythonArgs, {
+      cwd: path.resolve(__dirname, '../../'),
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`[${requestId}] 📤 Python标准输出:`, output.trim());
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.warn(`[${requestId}] ⚠️ Python错误输出:`, error.trim());
+    });
+
+    pythonProcess.on('close', (code) => {
+      console.log(`[${requestId}] 🏁 Python脚本执行完成`, { 
+        退出码: code,
+        输出文件存在: fs.existsSync(outputPath),
+        标准输出长度: stdout.length,
+        错误输出长度: stderr.length
+      });
+      
+      logger.info('Python脚本执行完成', { 
+        requestId, 
+        exitCode: code,
+        stdout: stdout.substring(0, 500),
+        stderr: stderr.substring(0, 500)
+      });
+
+      if (code === 0 && fs.existsSync(outputPath)) {
+        // 成功生成图片
+        const imageUrl = `/api/custom-image-generation/image/${outputFilename}`;
+        
+        console.log(`[${requestId}] ✅ 图片生成成功`, {
+          图片URL: imageUrl,
+          输出路径: outputPath,
+          文件大小: `${(fs.statSync(outputPath).size / 1024).toFixed(1)}KB`
+        });
+        
+        logger.info('图片生成成功', { requestId, imageUrl, outputPath });
+        
+        res.json({
+          success: true,
+          message: '图片生成成功',
+          imageUrl: imageUrl,
+          filename: outputFilename,
+          requestId: requestId
+        });
+      } else {
+        // 生成失败
+        console.error(`[${requestId}] ❌ 图片生成失败`, { 
+          退出码: code, 
+          错误输出: stderr,
+          输出文件存在: fs.existsSync(outputPath),
+          完整标准输出: stdout,
+          完整错误输出: stderr
+        });
+        
+        logger.error('图片生成失败', { 
+          requestId, 
+          exitCode: code, 
+          stderr,
+          outputExists: fs.existsSync(outputPath)
+        });
+        
+        res.status(500).json({
+          success: false,
+          message: `AI图片生成失败 (退出码: ${code})`,
+          error: stderr || stdout || '未知错误',
+          requestId: requestId,
+          details: 'Python脚本执行失败，请检查text_to_image_generator.py脚本和依赖'
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`[${requestId}] ❌ Python进程启动失败`, {
+        错误信息: error.message,
+        错误类型: error.name,
+        错误堆栈: error.stack
+      });
+      
+      logger.error('Python进程启动失败', { requestId, error: error.message });
+      res.status(500).json({
+        success: false,
+        message: 'Python进程启动失败',
+        error: error.message,
+        requestId: requestId,
+        details: '请检查Python3是否已安装且text_to_image_generator.py文件存在'
+      });
+    });
+
+  } catch (error) {
+    console.error(`[${requestId}] ❌ 文本生成图片请求处理异常`, {
+      错误信息: error.message,
+      错误类型: error.name,
+      错误堆栈: error.stack
+    });
+    
+    logger.error('文本生成图片请求处理失败', { 
+      requestId, 
+      error: error.message, 
+      stack: error.stack 
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: '服务器内部错误',
+      error: error.message,
+      requestId: requestId,
+      details: '请联系管理员检查服务器配置'
+    });
+  }
+});
+
 // 健康检查接口
 router.get('/custom-image-generation/health', (req, res) => {
-  const pythonScriptPath = path.resolve(__dirname, '../../backend/enhanced_image_generator.py');
+  const healthCheckId = `health_${Date.now()}`;
+  
+  console.log(`[${healthCheckId}] 🏥 图片生成服务健康检查开始`, {
+    API接口: '/api/custom-image-generation/health',
+    时间戳: new Date().toISOString()
+  });
+  
+  const pythonScriptPath = path.resolve(__dirname, '../../backend/text_to_image_generator.py');
   const scriptExists = fs.existsSync(pythonScriptPath);
   
-  res.json({
+  const healthData = {
     status: 'ok',
     pythonScript: {
       path: pythonScriptPath,
       exists: scriptExists
     },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    service: 'custom-image-generation',
+    version: '1.0.0'
+  };
+  
+  console.log(`[${healthCheckId}] ✅ 健康检查完成`, {
+    返回内容: healthData,
+    Python脚本存在: scriptExists
   });
+  
+  res.json(healthData);
 });
 
 export default router;

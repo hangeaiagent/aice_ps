@@ -38,11 +38,14 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSetting
       <header className="w-full py-4 px-4 sm:px-8 border-b border-gray-700 bg-gray-800/30 backdrop-blur-sm sticky top-0 z-50">
         <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
-                <button onClick={() => onViewChange('editor')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'editor' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
-                  <SparkleIcon className="w-6 h-6 text-blue-400" />
-                  <h1 className="text-xl font-bold tracking-tight">
-                    Aice PS
-                  </h1>
+                <button onClick={() => onViewChange('text-to-comic')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'text-to-comic' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                  <BookOpenIcon className="w-8 h-8 text-orange-400" />
+                  <div className="flex flex-col items-start">
+                    <h1 className="text-2xl font-bold tracking-tight text-gradient bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+                      慢光绘本
+                    </h1>
+                    <p className="text-xs text-gray-400 -mt-1">让阅读变成看绘本</p>
+                  </div>
                 </button>
 
                 <div className="h-6 w-px bg-gray-600"></div>

@@ -6,12 +6,28 @@
 interface KeyScene {
   text: string;        // 原始文本
   description: string; // 场景描述（用于生成图片）
+  emotion?: string;    // 主要情感
+  visualElements?: {
+    characters: string;
+    environment: string;
+    lighting: string;
+    composition: string;
+  };
+  colorTone?: string;  // 色彩倾向
+}
+
+interface MainCharacter {
+  name: string;
+  appearance: string;
+  personality: string;
 }
 
 interface ExtractedScenes {
   title: string;
   scenes: KeyScene[];
   style?: string;
+  mainCharacter?: MainCharacter;
+  colorScheme?: string;
 }
 
 class TextToComicService {
@@ -34,10 +50,10 @@ class TextToComicService {
       formData.append('image', imageFile);
       
       // 获取API基础URL
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
       
       // 调用后端 OCR 服务
-      const response = await fetch(`${apiBaseUrl}/api/ocr/extract-text`, {
+      const response = await fetch(`${apiBaseUrl}/api/text-to-comic/ocr/extract-text`, {
         method: 'POST',
         body: formData
       });
@@ -50,8 +66,8 @@ class TextToComicService {
       return data.text || '';
     } catch (error) {
       console.error('OCR 错误:', error);
-      // 如果 OCR 服务不可用，返回示例文本
-      return this.getMockText();
+      // 直接抛出异常，不使用模拟数据
+      throw new Error(`OCR文字提取失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 
@@ -61,12 +77,12 @@ class TextToComicService {
   async extractKeyScenes(text: string): Promise<ExtractedScenes> {
     try {
       // 优先使用后端代理API
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
       const useBackendProxy = import.meta.env.VITE_USE_BACKEND_PROXY !== 'false';
       
       if (useBackendProxy) {
         try {
-          const response = await fetch(`${apiBaseUrl}/api/deepseek/extract-scenes`, {
+          const response = await fetch(`${apiBaseUrl}/api/text-to-comic/deepseek/extract-scenes`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -77,15 +93,18 @@ class TextToComicService {
           if (response.ok) {
             const scenes = await response.json();
             return scenes;
+          } else {
+            throw new Error(`场景提取失败: ${response.status} ${response.statusText}`);
           }
         } catch (proxyError) {
-          console.error('后端代理失败，尝试直接调用:', proxyError);
+          console.error('后端代理失败:', proxyError);
+          throw new Error(`场景提取API调用失败: ${proxyError instanceof Error ? proxyError.message : '未知错误'}`);
         }
       }
       
-      // 如果没有配置 API Key，使用模拟数据
+      // 如果没有使用后端代理且没有配置 API Key，抛出错误
       if (!this.deepseekApiKey) {
-        return this.getMockScenes(text);
+        throw new Error('Deepseek API未配置，无法提取场景');
       }
 
       const prompt = `
@@ -149,47 +168,58 @@ ${text}
         return scenes;
       } catch (parseError) {
         console.error('解析 Deepseek 响应失败:', parseError);
-        // 如果解析失败，使用备用方案
-        return this.getMockScenes(text);
+        // 直接抛出解析错误
+        throw new Error(`解析场景数据失败: ${parseError instanceof Error ? parseError.message : '未知错误'}`);
       }
     } catch (error) {
       console.error('Deepseek API 调用失败:', error);
-      // 使用模拟数据作为后备
-      return this.getMockScenes(text);
+      // 直接抛出异常
+      throw new Error(`场景提取失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 
   /**
    * 使用 Google Nanobanana 生成漫画面板
    */
-  async generateComicPanel(description: string, style: string = 'cartoon'): Promise<string> {
+  async generateComicPanel(description: string, style: string = 'cartoon', scene?: KeyScene): Promise<string> {
     try {
       // 优先使用后端代理API
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
       const useBackendProxy = import.meta.env.VITE_USE_BACKEND_PROXY !== 'false';
       
       if (useBackendProxy) {
         try {
-          const response = await fetch(`${apiBaseUrl}/api/nanobanana/generate-comic`, {
+          const response = await fetch(`${apiBaseUrl}/api/text-to-comic/nanobanana/generate-comic`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ description, style })
+            body: JSON.stringify({ 
+              description, 
+              style,
+              scene: scene ? {
+                emotion: scene.emotion,
+                colorTone: scene.colorTone,
+                visualElements: scene.visualElements
+              } : undefined
+            })
           });
           
           if (response.ok) {
             const data = await response.json();
             return data.imageUrl || '';
+          } else {
+            throw new Error(`图片生成失败: ${response.status} ${response.statusText}`);
           }
         } catch (proxyError) {
-          console.error('后端代理失败，尝试直接调用:', proxyError);
+          console.error('后端代理失败:', proxyError);
+          throw new Error(`图片生成API调用失败: ${proxyError instanceof Error ? proxyError.message : '未知错误'}`);
         }
       }
       
-      // 如果没有配置 API Key，使用模拟图片
+      // 如果没有使用后端代理且没有配置 API Key，抛出错误
       if (!this.nanobananaApiKey) {
-        return this.getMockComicImage(description);
+        throw new Error('Nanobanana API未配置，无法生成图片');
       }
 
       // 构建生成漫画的提示词
@@ -226,73 +256,9 @@ child-friendly, colorful, expressive characters, clear storytelling
       return data.imageUrl || data.image_url || '';
     } catch (error) {
       console.error('Nanobanana API 调用失败:', error);
-      // 使用占位图片
-      return this.getMockComicImage(description);
+      // 直接抛出异常
+      throw new Error(`图片生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
-  }
-
-  /**
-   * 获取模拟文本（用于测试）
-   */
-  private getMockText(): string {
-    return `小明是个勤奋的学生，每天早上六点就起床学习。有一天，他在去学校的路上捡到了一个神奇的笔记本。
-    
-这个笔记本能够实现他写下的任何愿望。小明开始用它来帮助需要帮助的人。他帮助老奶奶找回了丢失的猫，帮助同学解决了数学难题。
-
-但是有一天，笔记本突然失去了魔力。小明意识到，真正的力量不是来自魔法，而是来自内心的善良和努力。
-
-从那以后，小明继续用自己的方式帮助他人，虽然没有了魔法，但他发现自己变得更加强大了。`;
-  }
-
-  /**
-   * 获取模拟场景（用于测试）
-   */
-  private getMockScenes(text: string): ExtractedScenes {
-    // 简单的文本分割逻辑
-    const sentences = text.split(/[。！？\n]+/).filter(s => s.trim().length > 0);
-    const sceneCount = Math.min(4, Math.max(2, Math.floor(sentences.length / 3)));
-    const scenesPerGroup = Math.ceil(sentences.length / sceneCount);
-    
-    const scenes: KeyScene[] = [];
-    for (let i = 0; i < sceneCount; i++) {
-      const start = i * scenesPerGroup;
-      const end = Math.min(start + scenesPerGroup, sentences.length);
-      const sceneText = sentences.slice(start, end).join('。');
-      
-      scenes.push({
-        text: sceneText,
-        description: this.generateMockDescription(sceneText, i)
-      });
-    }
-
-    return {
-      title: '我的故事',
-      style: 'cartoon',
-      scenes
-    };
-  }
-
-  /**
-   * 生成模拟的场景描述
-   */
-  private generateMockDescription(text: string, index: number): string {
-    const descriptions = [
-      'A young student studying diligently at a desk with books and a lamp, early morning light coming through the window',
-      'A magical notebook glowing with golden light, floating in the air with sparkles around it',
-      'A child helping an elderly person, showing kindness and compassion, warm and friendly atmosphere',
-      'A group of children working together to solve problems, teamwork and friendship theme'
-    ];
-    
-    return descriptions[index % descriptions.length];
-  }
-
-  /**
-   * 获取模拟的漫画图片（使用占位图服务）
-   */
-  private getMockComicImage(description: string): string {
-    // 使用 placeholder 服务生成示例图片
-    const seed = Math.random().toString(36).substring(7);
-    return `https://picsum.photos/seed/${seed}/512/512`;
   }
 }
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="lightblue"/>
+  <text x="50%" y="20%" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="darkblue">
+    AI Generated Image
+  </text>
+  <text x="50%" y="50%" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="darkblue">
+    A happy child playing in a garden...
+  </text>
+  <text x="50%" y="80%" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="gray">
+    512x512
+  </text>
+</svg>

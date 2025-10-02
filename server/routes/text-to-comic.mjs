@@ -25,7 +25,7 @@ const upload = multer({
 });
 
 // OCR 文字提取
-router.post('/ocr/extract-text', upload.single('image'), async (req, res) => {
+router.post('/text-to-comic/ocr/extract-text', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: '请上传图片文件' });
@@ -85,7 +85,7 @@ router.post('/ocr/extract-text', upload.single('image'), async (req, res) => {
 });
 
 // Deepseek API 代理
-router.post('/deepseek/extract-scenes', async (req, res) => {
+router.post('/text-to-comic/deepseek/extract-scenes', async (req, res) => {
   try {
     const { text } = req.body;
     
@@ -116,26 +116,46 @@ router.post('/deepseek/extract-scenes', async (req, res) => {
           },
           {
             role: 'user',
-            content: `将以下文本分解为3-6个关键场景，用于制作漫画。
+content: `作为专业的儿童读物插画师和故事分析专家，请将以下文本转换为漫画场景。
 
-要求：
-1. 提取最重要的情节点
-2. 每个场景包含原文的关键句子
-3. 为每个场景生成一个视觉化描述（用于AI绘图）
-4. 保持故事的连贯性
-5. 适合儿童阅读理解
+## 分析要求：
+1. **情节提取**：识别3-6个关键转折点和情感高潮
+2. **角色一致性**：确保主角在各场景中外观统一
+3. **情感映射**：为每个场景标识主要情感并匹配视觉元素
+4. **儿童友好**：适合6-12岁儿童理解和欣赏
 
-文本内容：
+## 视觉化标准：
+- **人物表情**：具体描述面部表情和情感状态
+- **环境设定**：明确时间、地点、天气、氛围
+- **动作描述**：详细的肢体语言和互动
+- **色彩建议**：符合情节情感的色调方案
+- **构图要求**：突出重点的视角和布局
+
+## 文本内容：
 ${text}
 
-请以JSON格式返回：
+## 输出格式：
 {
   "title": "故事标题",
   "style": "cartoon",
+  "mainCharacter": {
+    "name": "主角名字",
+    "appearance": "主角外观描述（年龄、性别、服装、特征）",
+    "personality": "性格特点"
+  },
+  "colorScheme": "整体色彩方案（温暖/冷色调/明亮/柔和等）",
   "scenes": [
     {
-      "text": "场景的原文内容",
-      "description": "场景的视觉描述，包括人物、动作、环境等细节"
+      "text": "场景原文内容",
+      "emotion": "主要情感（开心/紧张/好奇/感动等）",
+      "description": "专业插画描述",
+      "visualElements": {
+        "characters": "人物状态和表情",
+        "environment": "环境和背景",
+        "lighting": "光线和氛围",
+        "composition": "构图和视角"
+      },
+      "colorTone": "该场景的色彩倾向"
     }
   ]
 }`
@@ -169,54 +189,199 @@ ${text}
   }
 });
 
-// Google Nanobanana API 代理
-router.post('/nanobanana/generate-comic', async (req, res) => {
+// 漫画图片生成API - 使用真实的AI图片生成
+router.post('/text-to-comic/nanobanana/generate-comic', async (req, res) => {
+  const requestId = `comic_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  
   try {
-    const { description, style = 'cartoon' } = req.body;
+    const { description, style = 'cartoon', scene } = req.body;
+    
+    console.log(`[${requestId}] 🎨 漫画生成请求开始`, {
+      API接口: '/api/text-to-comic/nanobanana/generate-comic',
+      描述: description?.substring(0, 100) + (description?.length > 100 ? '...' : ''),
+      风格: style,
+      场景信息: scene ? '有' : '无',
+      时间戳: new Date().toISOString()
+    });
     
     if (!description) {
-      return res.status(400).json({ error: '请提供场景描述' });
+      console.error(`[${requestId}] ❌ 请求参数错误: 缺少场景描述`);
+      return res.status(400).json({ 
+        error: '请提供场景描述',
+        requestId 
+      });
     }
 
-    const nanobananaApiKey = process.env.NANOBANANA_API_KEY;
+    // 构建增强的提示词
+    const promptData = buildEnhancedComicPrompt(description, style, scene);
+    const enhancedPrompt = promptData.positive;
     
-    if (!nanobananaApiKey) {
-      // 返回模拟图片
-      const mockImageUrl = generateMockComicImage();
-      return res.json({ imageUrl: mockImageUrl });
+    console.log(`[${requestId}] 📝 提示词构建完成`, {
+      原始描述: description,
+      增强提示词长度: enhancedPrompt.length,
+      负面提示词长度: promptData.negative.length,
+      增强提示词预览: enhancedPrompt.substring(0, 200) + '...'
+    });
+
+    // 检查图片生成服务健康状态
+    console.log(`[${requestId}] 🔍 检查图片生成服务状态...`);
+    const healthCheckUrl = 'http://localhost:3002/api/custom-image-generation/health';
+    
+    let healthResponse;
+    try {
+      healthResponse = await fetch(healthCheckUrl);
+      console.log(`[${requestId}] 📡 健康检查响应`, {
+        API接口: healthCheckUrl,
+        状态码: healthResponse.status,
+        状态文本: healthResponse.statusText,
+        响应头: Object.fromEntries(healthResponse.headers.entries())
+      });
+    } catch (healthError) {
+      console.error(`[${requestId}] ❌ 健康检查请求失败`, {
+        API接口: healthCheckUrl,
+        错误信息: healthError.message,
+        错误类型: healthError.name
+      });
+      throw new Error(`图片生成服务不可用: ${healthError.message}`);
+    }
+    
+    if (!healthResponse.ok) {
+      console.error(`[${requestId}] ❌ 健康检查失败`, {
+        状态码: healthResponse.status,
+        状态文本: healthResponse.statusText
+      });
+      throw new Error(`图片生成服务健康检查失败: ${healthResponse.status} ${healthResponse.statusText}`);
     }
 
-    // 注意：这是示例代码，实际的 Nanobanana API 端点和参数可能不同
-    const response = await fetch('https://api.nanobanana.google.com/v1/generate', {
+    const healthData = await healthResponse.json();
+    console.log(`[${requestId}] ✅ 健康检查成功`, {
+      返回内容: healthData,
+      Python脚本存在: healthData.pythonScript?.exists,
+      脚本路径: healthData.pythonScript?.path
+    });
+    
+    // 检查Python脚本是否可用
+    if (!healthData.pythonScript || !healthData.pythonScript.exists) {
+      console.error(`[${requestId}] ❌ Python脚本不存在`, {
+        脚本信息: healthData.pythonScript
+      });
+      throw new Error('AI图片生成脚本不存在，请检查backend/enhanced_image_generator.py文件');
+    }
+
+    // 调用真实的图片生成API
+    console.log(`[${requestId}] 🚀 开始调用图片生成API...`);
+    const imageGenUrl = 'http://localhost:3002/api/custom-image-generation/generate';
+    const imageGenPayload = {
+      prompt: enhancedPrompt,
+      negative_prompt: promptData.negative,
+      width: 512,
+      height: 512,
+      num_inference_steps: 20,
+      guidance_scale: 7.5,
+      seed: Math.floor(Math.random() * 1000000)
+    };
+    
+    console.log(`[${requestId}] 📤 图片生成请求参数`, {
+      API接口: imageGenUrl,
+      请求载荷: {
+        ...imageGenPayload,
+        prompt: imageGenPayload.prompt.substring(0, 100) + '...',
+        negative_prompt: imageGenPayload.negative_prompt.substring(0, 50) + '...'
+      }
+    });
+
+    let imageGenResponse;
+    try {
+      imageGenResponse = await fetch(imageGenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${nanobananaApiKey}`
-      },
-      body: JSON.stringify({
-        prompt: `${style} style comic panel: ${description}. Child-friendly, colorful, expressive characters, clear storytelling`,
-        model: 'nanobanana-comic-v1',
-        parameters: {
-          width: 512,
-          height: 512,
-          style: style,
-          quality: 'high',
-          format: 'comic_panel'
-        }
-      })
+        },
+        body: JSON.stringify(imageGenPayload)
+      });
+      
+      console.log(`[${requestId}] 📡 图片生成API响应`, {
+        API接口: imageGenUrl,
+        状态码: imageGenResponse.status,
+        状态文本: imageGenResponse.statusText,
+        响应头: Object.fromEntries(imageGenResponse.headers.entries())
+      });
+    } catch (apiError) {
+      console.error(`[${requestId}] ❌ 图片生成API请求失败`, {
+        API接口: imageGenUrl,
+        错误信息: apiError.message,
+        错误类型: apiError.name,
+        错误堆栈: apiError.stack
+      });
+      throw new Error(`图片生成API请求失败: ${apiError.message}`);
+    }
+
+    if (!imageGenResponse.ok) {
+      let errorText = '';
+      try {
+        errorText = await imageGenResponse.text();
+      } catch (e) {
+        errorText = '无法读取错误响应';
+      }
+      
+      console.error(`[${requestId}] ❌ 图片生成API返回错误`, {
+        状态码: imageGenResponse.status,
+        状态文本: imageGenResponse.statusText,
+        错误响应: errorText
+      });
+      throw new Error(`图片生成失败: ${imageGenResponse.status} ${imageGenResponse.statusText} - ${errorText}`);
+    }
+
+    const imageData = await imageGenResponse.json();
+    console.log(`[${requestId}] 📥 图片生成API返回内容`, {
+      返回数据: imageData,
+      成功状态: imageData.success,
+      图片URL: imageData.imageUrl,
+      文件名: imageData.filename,
+      请求ID: imageData.requestId
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      res.json({ imageUrl: data.imageUrl || data.image_url });
-    } else {
-      throw new Error(`Nanobanana API error: ${response.status}`);
+    if (!imageData.success) {
+      console.error(`[${requestId}] ❌ 图片生成失败`, {
+        错误信息: imageData.message || imageData.error,
+        完整响应: imageData
+      });
+      throw new Error(`图片生成失败: ${imageData.message || imageData.error || '未知错误'}`);
     }
+
+    if (!imageData.imageUrl) {
+      console.error(`[${requestId}] ❌ 图片生成成功但未返回图片URL`, {
+        完整响应: imageData
+      });
+      throw new Error('图片生成成功但未返回图片URL');
+    }
+
+    console.log(`[${requestId}] ✅ 漫画图片生成成功`, {
+      图片URL: imageData.imageUrl,
+      处理时长: `${Date.now() - parseInt(requestId.split('_')[1])}ms`
+    });
+
+    return res.json({ 
+      imageUrl: imageData.imageUrl,
+      requestId: requestId,
+      generatedAt: new Date().toISOString()
+    });
+    
   } catch (error) {
-    console.error('Nanobanana API 错误:', error);
-    // 返回模拟图片
-    const mockImageUrl = generateMockComicImage();
-    res.json({ imageUrl: mockImageUrl });
+    console.error(`[${requestId}] ❌ 漫画生成过程发生异常`, {
+      错误信息: error.message,
+      错误类型: error.name,
+      错误堆栈: error.stack,
+      处理时长: `${Date.now() - parseInt(requestId.split('_')[1])}ms`
+    });
+    
+    // 直接返回错误，不使用模拟图片
+    return res.status(500).json({
+      error: `图片生成失败: ${error.message}`,
+      requestId: requestId,
+      timestamp: new Date().toISOString(),
+      details: '请检查AI图片生成服务是否正常运行'
+    });
   }
 });
 
@@ -257,10 +422,90 @@ function generateMockDescription(index) {
   return descriptions[index % descriptions.length];
 }
 
-// 生成模拟漫画图片
-function generateMockComicImage() {
-  const seed = Math.random().toString(36).substring(7);
-  return `https://picsum.photos/seed/${seed}/512/512`;
+// 构建增强的漫画生成提示词
+function buildEnhancedComicPrompt(description, style = 'cartoon', scene = null) {
+  // 解析场景描述，提取关键元素
+  let enhancedPrompt = '';
+  
+  // 基础风格设定
+  const stylePrompts = {
+    cartoon: 'vibrant cartoon style, Disney-Pixar inspired, children\'s book illustration',
+    anime: 'anime manga style, Studio Ghibli inspired, soft colors',
+    realistic: 'semi-realistic illustration style, detailed artwork',
+    watercolor: 'soft watercolor painting style, gentle brushstrokes',
+    sketch: 'detailed pencil sketch style, expressive linework'
+  };
+  
+  enhancedPrompt += stylePrompts[style] || stylePrompts.cartoon;
+  
+  // 如果有场景信息，添加情感和色彩指导
+  if (scene) {
+    if (scene.emotion) {
+      const emotionPrompts = {
+        '开心': 'joyful, bright, cheerful atmosphere',
+        '紧张': 'tense, dramatic lighting, focused composition',
+        '好奇': 'curious, wonder-filled, exploratory mood',
+        '感动': 'touching, warm, emotional connection',
+        '兴奋': 'excited, energetic, dynamic composition',
+        '平静': 'peaceful, serene, calm atmosphere'
+      };
+      const emotionPrompt = emotionPrompts[scene.emotion] || 'positive emotional tone';
+      enhancedPrompt += `, ${emotionPrompt}`;
+    }
+    
+    if (scene.colorTone) {
+      enhancedPrompt += `, ${scene.colorTone} color palette`;
+    }
+    
+    if (scene.visualElements) {
+      if (scene.visualElements.lighting) {
+        enhancedPrompt += `, ${scene.visualElements.lighting}`;
+      }
+      if (scene.visualElements.composition) {
+        enhancedPrompt += `, ${scene.visualElements.composition}`;
+      }
+    }
+  }
+  
+  // 核心场景描述
+  enhancedPrompt += `, ${description}`;
+  
+  // 质量和风格增强词
+  const qualityEnhancers = [
+    'professional children\'s book illustration',
+    'highly detailed',
+    'expressive characters',
+    'clear storytelling composition',
+    'bright and cheerful colors',
+    'child-friendly atmosphere',
+    'masterpiece quality',
+    'beautiful artwork',
+    '4K resolution'
+  ];
+  
+  enhancedPrompt += ', ' + qualityEnhancers.join(', ');
+  
+  // 负面提示词（避免不适合儿童的内容）
+  const negativePrompts = [
+    'dark themes',
+    'scary elements',
+    'violence',
+    'inappropriate content',
+    'blurry',
+    'low quality',
+    'distorted faces',
+    'ugly',
+    'deformed',
+    'bad anatomy',
+    'text',
+    'watermark'
+  ];
+  
+  return {
+    positive: enhancedPrompt,
+    negative: negativePrompts.join(', ')
+  };
 }
+
 
 export default router;
